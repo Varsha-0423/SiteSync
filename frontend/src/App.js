@@ -1,22 +1,30 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/admin/Dashboard";
 import AdminCreateUser from "./pages/admin/AdminCreateUser";
 import UserDetails from "./pages/admin/UserDetails";
-import WorkerSubmit from "./pages/WorkerSubmit";
-import ProtectedRoute from "./pages/admin/ProtectedRoute";
+import WorkerSubmit from "./pages/worker/WorkerSubmit";
+import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminUploadExcel from "./pages/admin/AdminUploadExcel";
 import TaskAssignment from "./pages/admin/TaskAssignment";
 import AdminTodayTasks from "./pages/admin/AdminTodayTasks";
-import SupervisorTaskAssignment from "./pages/supervisor/SupervisorTaskAssignment";
+import SupervisorDashboard from "./pages/supervisor/SupervisorDashboard";
 import SupervisorLayout from "./pages/supervisor/SupervisorLayout";
+import SupervisorTaskAssignment from "./pages/supervisor/SupervisorTaskAssignment";
+import WorkerDashboard from "./pages/worker/WorkerDashboard";
+import WorkerLayout from "./pages/worker/WorkerLayout";
+import MyTasks from "./pages/worker/MyTasks";
+import SubmitWork from "./pages/worker/SubmitWork";
 
 function App() {
   const isAuthenticated = !!localStorage.getItem('token');
 
+  // Wrap the entire app with AuthProvider
   return (
+    <AuthProvider>
     <Router>
       <div className="App">
         <Routes>
@@ -33,10 +41,11 @@ function App() {
           <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} />
           
           {/* Protected routes */}
+          {/* Admin Routes */}
           <Route 
-            path="/dashboard" 
+            path="/admin/dashboard" 
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={['admin']}>
                 <AdminLayout>
                   <Dashboard />
                 </AdminLayout>
@@ -44,14 +53,32 @@ function App() {
             } 
           />
           
+          {/* Supervisor Routes */}
           <Route 
-            path="/worker/submit" 
+            path="/supervisor/dashboard" 
             element={
-              <ProtectedRoute allowedRoles={['worker']}>
-                <WorkerSubmit />
+              <ProtectedRoute allowedRoles={['supervisor']}>
+                <SupervisorLayout>
+                  <SupervisorDashboard />
+                </SupervisorLayout>
               </ProtectedRoute>
             } 
           />
+          
+          {/* Worker Routes */}
+          <Route 
+            path="/worker" 
+            element={
+              <ProtectedRoute allowedRoles={['worker']}>
+                <WorkerLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<WorkerDashboard />} />
+            <Route path="my-tasks" element={<MyTasks />} />
+            <Route path="submit-work" element={<SubmitWork />} />
+          </Route>
           
           {/* Admin routes */}
           <Route 
@@ -101,6 +128,7 @@ function App() {
         </Routes>
       </div>
     </Router>
+    </AuthProvider>
   );
 }
 
