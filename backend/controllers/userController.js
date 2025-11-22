@@ -23,7 +23,7 @@ exports.createUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: role || 'worker' // Default to 'worker' if role not provided
+      role: role || 'supervisor' // Default to 'supervisor' if role not provided
     });
 
     // Remove password from response

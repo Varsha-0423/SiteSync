@@ -3,7 +3,8 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Layout, Menu, Button, theme } from 'antd';
 import {
   CheckSquareOutlined,
-  LogoutOutlined
+  LogoutOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 
 const { Header } = Layout;
@@ -19,6 +20,7 @@ const SupervisorNavbar = () => {
   const getSelectedKey = () => {
     const path = location.pathname;
     if (path.includes('assign-tasks')) return '1';
+    if (path.includes('submit-work')) return '2';
     return '1'; // Default to assign tasks
   };
 
@@ -59,6 +61,9 @@ const SupervisorNavbar = () => {
         >
           <Menu.Item key="1" icon={<CheckSquareOutlined />}>
             <NavLink to="/supervisor/assign-tasks">Assign Tasks</NavLink>
+          </Menu.Item>
+          <Menu.Item key="2" icon={<UploadOutlined />}>
+            <NavLink to="/supervisor/submit-work">Submit Work</NavLink>
           </Menu.Item>
         </Menu>
       </div>

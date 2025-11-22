@@ -20,12 +20,12 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined
 } from '@ant-design/icons';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import { 
   getIncompleteTasks, 
   submitWork, 
   getSubmissionHistory 
-} from '../../services/workerService';
+} from '../../../services/workerService';
 
 const { Text } = Typography;
 

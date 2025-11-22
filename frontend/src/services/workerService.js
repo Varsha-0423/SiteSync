@@ -82,14 +82,7 @@ export const getWorkerTasks = async (workerId, status = 'all') => {
     
     throw enhancedError;
     
-    // Rethrow with a more user-friendly message
-    if (error.response?.data?.message) {
-      throw new Error(`Server error: ${error.response.data.message}`);
-    } else if (error.response?.data?.error) {
-      throw new Error(`Server error: ${error.response.data.error}`);
-    }
-    
-    throw error;
+    // The enhanced error is already thrown above
   }
 };
 
