@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 // Protect routes
-exports.protect = async (req, res, next) => {
+const protect = async (req, res, next) => {
   let token;
 
   if (
@@ -22,17 +22,17 @@ exports.protect = async (req, res, next) => {
       next();
     } catch (error) {
       console.error(error);
-      res.status(401).json({ message: 'Not authorized, token failed' });
+      return res.status(401).json({ message: 'Not authorized, token failed' });
     }
   }
 
   if (!token) {
-    res.status(401).json({ message: 'Not authorized, no token' });
+    return res.status(401).json({ message: 'Not authorized, no token' });
   }
 };
 
 // Admin middleware
-exports.admin = (req, res, next) => {
+const admin = (req, res, next) => {
   if (req.user && req.user.role === 'admin') {
     next();
   } else {
@@ -41,7 +41,7 @@ exports.admin = (req, res, next) => {
 };
 
 // Supervisor middleware
-exports.supervisor = (req, res, next) => {
+const supervisor = (req, res, next) => {
   if (req.user && (req.user.role === 'supervisor' || req.user.role === 'admin')) {
     next();
   } else {
@@ -50,7 +50,7 @@ exports.supervisor = (req, res, next) => {
 };
 
 // Admin or Supervisor middleware
-exports.adminOrSupervisor = (req, res, next) => {
+const adminOrSupervisor = (req, res, next) => {
   if (req.user && (req.user.role === 'admin' || req.user.role === 'supervisor')) {
     next();
   } else {
@@ -62,7 +62,7 @@ exports.adminOrSupervisor = (req, res, next) => {
 const auth = (roles = []) => {
   return (req, res, next) => {
     // First run protect middleware to verify token and get user
-    exports.protect(req, res, (err) => {
+    protect(req, res, (err) => {
       if (err) return; // Error already handled by protect
       
       // Check if user has required role
@@ -77,10 +77,11 @@ const auth = (roles = []) => {
   };
 };
 
-// Export both the individual functions and the wrapper
-module.exports = auth;
-// Also export as properties for backward compatibility
-module.exports.protect = exports.protect;
-module.exports.admin = exports.admin;
-module.exports.supervisor = exports.supervisor;
-module.exports.adminOrSupervisor = exports.adminOrSupervisor;
+// Export all middleware functions
+module.exports = {
+  protect,
+  admin,
+  supervisor,
+  adminOrSupervisor,
+  auth
+};

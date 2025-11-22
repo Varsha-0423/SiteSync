@@ -7,190 +7,232 @@ exports.registerUser = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
 
-    const existing = await User.findOne({ email });
-    if (existing)
-      return res.status(400).json({ message: "Email already registered" });
+    // Input validation
+    if (!name || !email || !password) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Please provide all required fields (name, email, password)' 
+      });
+    }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Check if user already exists (case-insensitive)
+    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existingUser) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'Email already registered' 
+      });
+    }
 
-    const user = await User.create({
-      name,
-      email,
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long'
+      });
+    }
+
+    // Create user with hashed password
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    const user = new User({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
       password: hashedPassword,
-      role
+      role: (role && ['admin', 'supervisor', 'worker'].includes(role.toLowerCase())) 
+        ? role.toLowerCase() 
+        : 'worker'
     });
 
-    res.json({ success: true, user });
+    // Save the user
+    await user.save();
 
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ message: "Registration failed" });
-  }
-};
+    // Generate JWT token
+    const token = user.getSignedJwtToken();
 
-// LOGIN USER
-exports.loginUser = async (req, res) => {
-  console.log('Login request received:', { 
-    body: req.body,
-    headers: req.headers,
-    env: {
-      JWT_SECRET: process.env.JWT_SECRET ? '***' : 'MISSING',
-      NODE_ENV: process.env.NODE_ENV || 'development'
-    }
-  });
+    // Create response without sensitive data
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    delete userResponse.__v;
 
-  try {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      console.log('Missing credentials:', { email: !!email, password: !!password });
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide both email and password',
-        error: 'Missing credentials'
-      });
-    }
-
-    console.log('Login attempt for email:', email);
-    
-    // Check if JWT_SECRET is available
-    if (!process.env.JWT_SECRET) {
-      const error = new Error('JWT_SECRET is not set in environment variables');
-      console.error('JWT_SECRET missing:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Server configuration error',
-        error: 'Server configuration error',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
-      });
-    }
-    
-    // Validate input
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Please provide both email and password'
-      });
-    }
-
-    // Find user by email
-    let user;
-    try {
-      console.log('Attempting to find user with email:', email);
-      user = await User.findOne({ email }).select('+password').lean().exec();
-      
-      if (!user) {
-        console.log('Login failed: User not found for email:', email);
-        return res.status(400).json({ 
-          success: false,
-          message: 'Invalid email or password',
-          error: 'Invalid credentials'
-        });
-      }
-      
-      console.log('User found:', { 
-        userId: user._id, 
-        role: user.role,
-        hasPassword: !!user.password 
-      });
-    } catch (dbError) {
-      console.error('Database error during user lookup:', dbError);
-      return res.status(500).json({
-        success: false,
-        message: 'Error during authentication',
-        error: 'Database error',
-        details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
-      });
-    }
-
-    console.log('User found, comparing passwords...');
-    try {
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        console.log('Login failed: Invalid password for email:', email);
-        return res.status(400).json({ 
-          success: false,
-          message: 'Invalid email or password',
-          error: 'Invalid password'
-        });
-      }
-    } catch (compareError) {
-      console.error('Error comparing passwords:', compareError);
-      return res.status(500).json({
-        success: false,
-        message: 'Error during authentication',
-        error: 'Password comparison failed',
-        details: process.env.NODE_ENV === 'development' ? compareError.message : undefined
-      });
-    }
-
-    console.log('Password match, generating token...');
-    try {
-      const payload = { 
-        id: user._id.toString(), 
-        role: user.role,
-        email: user.email
-      };
-      
-      console.log('Creating JWT with payload:', payload);
-      
-      const token = jwt.sign(
-        payload,
-        process.env.JWT_SECRET, 
-        { 
-          expiresIn: process.env.JWT_EXPIRE || '7d',
-          algorithm: 'HS256'
-        }
-      );
-
-      console.log('Token generated successfully');
-      
-      // Remove password from user object before sending response
-      const userResponse = { ...user };
-      delete userResponse.password;
-
-      res.json({ 
-        success: true, 
-        token, 
-        user: userResponse 
-      });
-      
-    } catch (tokenError) {
-      console.error('Token generation error:', tokenError);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Error generating authentication token',
-        error: tokenError.message 
-      });
-    }
-
-  } catch (error) {
-    console.error('Login error:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      code: error.code,
-      keyPattern: error.keyPattern,
-      keyValue: error.keyValue,
-      errors: error.errors
+    // Send response with token and user data
+    res.status(201).json({
+      success: true,
+      token,
+      user: userResponse
     });
+
+  } catch (error) {
+    console.error('Registration error:', error);
     
-    // Handle specific MongoDB errors
-    if (error.name === 'MongoError' || error.name === 'MongoServerError') {
-      console.error('MongoDB error during login:', error);
-      return res.status(500).json({
+    // Handle duplicate key error (unique email)
+    if (error.code === 11000) {
+      return res.status(400).json({
         success: false,
-        message: 'Database error during login',
-        error: 'Database operation failed',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: 'Email already exists'
+      });
+    }
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: messages
       });
     }
     
     res.status(500).json({ 
       success: false,
-      message: 'Login failed',
-      error: 'An unexpected error occurred',
+      message: 'Registration failed. Please try again.',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Helper function to normalize email
+const normalizeEmail = (email) => email ? email.toLowerCase().trim() : '';
+
+// LOGIN USER
+exports.loginUser = async (req, res) => {
+  try {
+    let { email, password, role } = req.body;
+    
+    // Normalize email
+    email = normalizeEmail(email);
+
+    // Validate required fields
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide both email and password',
+        error: 'missing_credentials'
+      });
+    }
+
+    // Find user by email (case-insensitive)
+    const user = await User.findOne({ email }).select('+password');
+    
+    // Check if user exists
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+        error: 'invalid_credentials'
+      });
+    }
+
+    // Check if user has a password (in case of OAuth users)
+    if (!user.password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please use the correct login method for this account',
+        error: 'invalid_auth_method'
+      });
+    }
+
+    // Check if password matches
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+        error: 'invalid_credentials'
+      });
+    }
+
+    // Check role if specified
+    if (role && user.role !== role.toLowerCase()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied for this role',
+        error: 'unauthorized_role'
+      });
+    }
+
+    // Generate JWT token
+    const token = user.getSignedJwtToken();
+    
+    // Create response without sensitive data
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    delete userResponse.__v;
+
+    // Send token and user data
+    res.json({
+      success: true,
+      token,
+      user: userResponse
+    });
+    
+  } catch (error) {
+    console.error('Login error:', error);
+    
+    // Handle specific error types
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        error: 'validation_error',
+        details: process.env.NODE_ENV === 'development' 
+          ? Object.values(error.errors).map(e => e.message) 
+          : undefined
+      });
+    }
+    
+    // Handle MongoDB errors
+    if (error.name === 'MongoError' || error.name === 'MongoServerError') {
+      return res.status(500).json({
+        success: false,
+        message: 'Database error occurred',
+        error: 'database_error',
+        code: error.code,
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+    
+    // Handle JWT errors
+    if (error.name === 'JsonWebTokenError' || error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication failed',
+        error: error.name === 'TokenExpiredError' ? 'token_expired' : 'invalid_token'
+      });
+    }
+    
+    // Generic error handler
+    console.error('Error during login:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Login failed. Please try again.',
+      error: 'server_error',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// VERIFY TOKEN
+exports.verifyToken = async (req, res) => {
+  try {
+    // If we reach here, the token is valid (thanks to protect middleware)
+    // and req.user is populated by the protect middleware
+    res.status(200).json({
+      success: true,
+      user: {
+        id: req.user._id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role
+      }
+    });
+  } catch (error) {
+    console.error('Token verification error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error verifying token',
+      error: error.message
     });
   }
 };

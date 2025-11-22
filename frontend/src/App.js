@@ -1,11 +1,10 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/admin/Dashboard";
 import AdminCreateUser from "./pages/admin/AdminCreateUser";
 import UserDetails from "./pages/admin/UserDetails";
-import WorkerSubmit from "./pages/worker/WorkerSubmit";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminUploadExcel from "./pages/admin/AdminUploadExcel";
@@ -20,25 +19,53 @@ import MyTasks from "./pages/worker/MyTasks";
 import SubmitWork from "./pages/worker/SubmitWork";
 
 function App() {
-  const isAuthenticated = !!localStorage.getItem('token');
-
-  // Wrap the entire app with AuthProvider
   return (
-    <AuthProvider>
     <Router>
-      <div className="App">
-        <Routes>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Router>
+  );
+}
+
+// Move the main app content into a separate component that uses AuthProvider
+function AppContent() {
+  const { currentUser } = useAuth();
+  const isAuthenticated = !!localStorage.getItem('token');
+  const location = useLocation();
+
+  // Handle authentication state
+  if (!isAuthenticated) {
+    if (location.pathname !== '/login') {
+      return <Navigate to="/login" replace state={{ from: location }} />;
+    }
+  } else if (location.pathname === '/' || location.pathname === '/login') {
+    // If authenticated and on root or login, redirect to appropriate dashboard
+    const userRole = currentUser?.role || 'worker';
+    return <Navigate to={`/${userRole}/dashboard`} replace />;
+  }
+
+  return (
+    <div className="App">
+      <Routes>
           <Route 
             path="/" 
             element={
               isAuthenticated 
-                ? <Navigate to="/dashboard" replace /> 
+                ? <Navigate to={`/${currentUser?.role || 'worker'}/dashboard`} replace />
                 : <Navigate to="/login" replace /> 
             } 
           />
           
           {/* Public routes */}
-          <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} />
+          <Route 
+            path="/login" 
+            element={
+              isAuthenticated 
+                ? <Navigate to={`/${currentUser?.role || 'worker'}/dashboard`} replace /> 
+                : <Login />
+            } 
+          />
           
           {/* Protected routes */}
           {/* Admin Routes */}
@@ -127,8 +154,6 @@ function App() {
           <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
         </Routes>
       </div>
-    </Router>
-    </AuthProvider>
   );
 }
 

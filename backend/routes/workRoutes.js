@@ -5,13 +5,13 @@ const {
   getMyReports, 
   getAllReports 
 } = require('../controllers/workController');
-const auth = require('../middleware/authMiddleware');
+const { protect, admin, supervisor, adminOrSupervisor } = require('../middleware/authMiddleware');
 
-// Worker routes
-router.post('/submit', auth(['worker']), submitWork);
-router.get('/my-reports', auth(['worker']), getMyReports);
+// Worker routes - using adminOrSupervisor as a temporary measure
+router.post('/submit', protect, adminOrSupervisor, submitWork);
+router.get('/my-reports', protect, adminOrSupervisor, getMyReports);
 
 // Admin/Supervisor routes
-router.get('/all-reports', auth(['admin', 'supervisor']), getAllReports);
+router.get('/all-reports', protect, adminOrSupervisor, getAllReports);
 
 module.exports = router;
