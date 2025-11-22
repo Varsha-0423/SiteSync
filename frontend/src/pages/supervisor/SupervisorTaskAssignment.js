@@ -34,23 +34,89 @@ function SupervisorTaskAssignment() {
     }
   };
 
-  const handleAssignmentChange = async (taskId, workerIds) => {
-    try {
-      setLoading(true);
-      await api.put(`/tasks/${taskId}`, { assignedWorkers: workerIds });
-      
-      // Refresh tasks to show updated assignments
-      await fetchTodayTasks();
-      setMessage('Task assignment updated successfully');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      console.error('Error updating task assignment:', error);
-      setMessage('Error updating task assignment');
-    } finally {
-      setLoading(false);
-    }
-  };
+const handleAssignmentChange = async (taskId, workerIds) => {
+  try {
+    setLoading(true);
+    console.log('1. Starting assignment for task:', taskId, 'with workers:', workerIds);
+    
+    // Ensure workerIds is an array of strings (user IDs)
+    const workerIdsArray = Array.isArray(workerIds) ? workerIds : [workerIds];
+    
+    // Filter out any invalid or empty values and ensure they're valid MongoDB ObjectId strings
+    const validWorkerIds = workerIdsArray
+      .map(id => {
+        if (typeof id === 'object' && id !== null) {
+          return id._id || id;
+        }
+        return id;
+      })
+      .filter(id => id && typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id));
 
+    // Get worker names for confirmation
+    const selectedWorkers = validWorkerIds
+      .map(id => {
+        const worker = workers.find(w => w._id === id);
+        return worker ? worker.name : `Worker (${id})`;
+      })
+      .join(', ');
+
+    // Show confirmation dialog
+    if (!window.confirm(`Are you sure you want to assign this task to: ${selectedWorkers || 'No workers selected'}?`)) {
+      console.log('Assignment cancelled by user');
+      setLoading(false);
+      return;
+    }
+
+    console.log('2. Processed worker IDs:', validWorkerIds);
+    
+    // Update the task with the new worker assignments
+    console.log('3. Sending request to update task...');
+    const response = await api.put(`/tasks/${taskId}`, { 
+      assignedWorkers: validWorkerIds 
+    });
+    
+    console.log('4. Server response:', response.data);
+    
+    // Update the local state with the updated task
+    console.log('5. Updating local state...');
+    const updatedTask = response.data.data;
+    setTasks(prevTasks => {
+      const updatedTasks = prevTasks.map(task => 
+        task._id === taskId 
+          ? { 
+              ...task, 
+              assignedWorkers: validWorkerIds.map(id => {
+                // Return either the existing worker object or create a minimal one with just the ID
+                const existingWorker = task.assignedWorkers?.find(w => 
+                  (typeof w === 'object' ? w._id : w) === id
+                );
+                if (existingWorker) return existingWorker;
+                
+                // If not found in existing workers, find in the workers list
+                const worker = workers.find(w => w._id === id);
+                return worker || { _id: id, name: `Worker (${id})` };
+              })
+            }
+          : task
+      );
+      console.log('6. Updated tasks state:', updatedTasks);
+      return updatedTasks;
+    });
+    
+    setMessage('Task assignment updated successfully');
+    console.log('7. Assignment completed successfully');
+    setTimeout(() => setMessage(''), 3000);
+  } catch (error) {
+    console.error('Error updating task assignment:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status
+    });
+    setMessage(error.response?.data?.message || 'Error updating task assignment');
+  } finally {
+    setLoading(false);
+  }
+};
   const handleStatusChange = async (taskId, status) => {
     try {
       setLoading(true);
@@ -178,7 +244,7 @@ function SupervisorTaskAssignment() {
                     </label>
                     <select
                       multiple
-                      value={task.assignedWorkers?.map(w => w._id) || []}
+                      value={task.assignedWorkers?.map(w => typeof w === 'object' ? w._id : w) || []}
                       onChange={(e) => {
                         const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
                         handleAssignmentChange(task._id, selectedOptions);
@@ -191,6 +257,7 @@ function SupervisorTaskAssignment() {
                         minHeight: '60px',
                         fontSize: '14px'
                       }}
+                      disabled={loading}
                     >
                       {workers.map((worker) => (
                         <option key={worker._id} value={worker._id}>
@@ -211,20 +278,35 @@ function SupervisorTaskAssignment() {
                       padding: '8px', 
                       backgroundColor: '#f8f9fa', 
                       borderRadius: '4px',
-                      minHeight: '60px',
-                      fontSize: '14px'
+                      minHeight: '60px'
                     }}>
                       {task.assignedWorkers && task.assignedWorkers.length > 0 ? (
-                        <div>
-                          {task.assignedWorkers.map((worker) => (
-                            <div key={worker._id} style={{ marginBottom: '2px' }}>
-                              • {worker.name}
-                            </div>
-                          ))}
-                        </div>
+                        <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                          {task.assignedWorkers.map((worker, index) => {
+                            console.log('Rendering worker:', worker);
+                            let workerName = 'Unknown Worker';
+                            
+                            // Handle different possible formats of worker data
+                            if (typeof worker === 'object' && worker !== null) {
+                              workerName = worker.name || 'Unnamed Worker';
+                            } else if (typeof worker === 'string' && worker.length > 0) {
+                              const foundWorker = workers.find(w => w._id === worker);
+                              workerName = foundWorker ? foundWorker.name : `Worker (${worker})`;
+                            }
+                            
+                            return (
+                              <li key={worker._id || worker || index}>
+                                {workerName}
+                              </li>
+                            );
+                          })}
+                        </ul>
                       ) : (
-                        <span style={{ color: '#999', fontStyle: 'italic' }}>No workers assigned</span>
+                        <span style={{ color: '#6c757d', fontStyle: 'italic' }}>No workers assigned</span>
                       )}
+                      <div style={{ marginTop: '5px', fontSize: '10px', color: '#999' }}>
+                        Workers in state: {JSON.stringify(task.assignedWorkers)}
+                      </div>
                     </div>
                   </div>
                 </div>

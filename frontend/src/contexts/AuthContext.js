@@ -13,13 +13,42 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const verifyToken = async () => {
-      const user = JSON.parse(localStorage.getItem('user'));
+      const userStr = localStorage.getItem('user');
       const token = localStorage.getItem('token');
       
-      if (user && token) {
+      if (userStr && token) {
         try {
-          await api.get('/auth/verify-token');
-          setCurrentUser(user);
+          // Verify token with the server
+          const response = await api.get('/auth/verify-token');
+          
+          // Get user data from localStorage and ensure it has an ID
+          let user = JSON.parse(userStr);
+          
+          // If the server returned fresh user data, use that instead
+          if (response.data?.user) {
+            user = response.data.user;
+            localStorage.setItem('user', JSON.stringify(user));
+          }
+          
+          // Ensure user has an ID
+          if (!user.id && !user._id) {
+            console.error('User data is missing ID:', user);
+            throw new Error('User data is missing ID');
+          }
+          
+          // Normalize user data to always use 'id'
+          const normalizedUser = {
+            ...user,
+            id: user._id || user.id
+          };
+          
+          console.log('User verified:', { 
+            userId: normalizedUser.id,
+            email: normalizedUser.email,
+            role: normalizedUser.role 
+          });
+          
+          setCurrentUser(normalizedUser);
         } catch (error) {
           console.error('Token verification failed:', error);
           localStorage.removeItem('user');
@@ -144,26 +173,30 @@ export function AuthProvider({ children }) {
         throw new Error('Invalid login response');
       }
 
-      // Case-insensitive role comparison
-      if (role && user.role) {
-  if (user.role.toLowerCase() !== role.toLowerCase()) {
-    console.warn(`Role mismatch → expected ${role}, got ${user.role}`);
-  }
-}
-
-
-      // Store auth data
+      // Ensure user object has an id field
+      if (!user._id && !user.id) {
+        console.error('User data is missing ID:', user);
+        throw new Error('User data is missing ID');
+      }
+      
+      // Normalize user data to always use 'id' instead of '_id'
+      const normalizedUser = {
+        ...user,
+        id: user._id || user.id
+      };
+      
+      // Store the token and user data in localStorage
       localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      setCurrentUser(user);
-
-      console.log('Login successful for:', {
-        id: user._id,
-        email: user.email,
-        role: user.role
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
+      
+      console.log('User logged in successfully:', {
+        userId: normalizedUser.id,
+        email: normalizedUser.email,
+        role: normalizedUser.role
       });
-
-      return { success: true, user };
+      
+      setCurrentUser(normalizedUser);
+      return normalizedUser;
 
     } catch (error) {
       console.error('Login error:', {

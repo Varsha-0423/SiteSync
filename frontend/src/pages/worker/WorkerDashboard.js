@@ -38,15 +38,53 @@ function WorkerDashboard() {
   });
 
   useEffect(() => {
-    fetchWorkerTasks();
-  }, [activeTab]);
+    console.log('Current user in WorkerDashboard:', currentUser);
+    
+    if (currentUser?.id) {
+      console.log('Fetching tasks for worker ID:', currentUser.id);
+      fetchWorkerTasks();
+    } else {
+      console.warn('Cannot fetch tasks: User ID is not available', {
+        hasCurrentUser: !!currentUser,
+        userId: currentUser?.id,
+        currentUser
+      });
+    }
+  }, [activeTab, currentUser]);
+  
+  // Add a debug effect to log auth state changes
+  useEffect(() => {
+    console.log('Auth state changed:', { 
+      isAuthenticated: !!currentUser,
+      userId: currentUser?.id,
+      userRole: currentUser?.role
+    });
+  }, [currentUser]);
 
   const fetchWorkerTasks = async () => {
+    const workerId = currentUser?.id;
+    
+    if (!workerId) {
+      console.error('Cannot fetch tasks: User ID is not available', {
+        currentUser,
+        hasId: !!currentUser?.id,
+        has_id: !!currentUser?._id
+      });
+      return;
+    }
+    
     try {
       setLoading(true);
-      const tasksData = await getWorkerTasks(currentUser.id, activeTab);
-
-      setTasks(tasksData);
+      console.log('Fetching tasks for worker:', {
+        workerId,
+        status: activeTab,
+        timestamp: new Date().toISOString()
+      });
+      
+      const tasksData = await getWorkerTasks(workerId, activeTab);
+      console.log('Successfully fetched tasks:', tasksData);
+      
+      setTasks(tasksData || []);
 
       setStats({
         assigned: tasksData.filter((t) => t.status === "assigned").length,

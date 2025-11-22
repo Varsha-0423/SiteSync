@@ -44,6 +44,7 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tasks', require('./routes/taskRoutes'));
 app.use('/api/work', require('./routes/workRoutes'));
+app.use('/api/worker', require('./routes/workerRoutes'));
 
 // Error handler middleware (should be after all other middleware and routes)
 app.use(errorHandler);

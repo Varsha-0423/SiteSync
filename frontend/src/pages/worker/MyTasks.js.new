@@ -1,0 +1,282 @@
+import React, { useState, useEffect } from 'react';
+import { List, Card, Tag, Badge, Button, Spin, message, Empty, Typography } from 'antd';
+import { 
+  CheckCircleOutlined, 
+  ClockCircleOutlined, 
+  ExclamationCircleOutlined,
+  FileDoneOutlined
+} from '@ant-design/icons';
+import { useAuth } from '../../contexts/AuthContext';
+import { getWorkerTasks, updateTaskStatus } from '../../services/workerService';
+
+const { Text } = Typography;
+
+const MyTasks = () => {
+  const { currentUser } = useAuth();
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('all');
+
+  useEffect(() => {
+    fetchTasks();
+  }, [filter]);
+
+  const fetchTasks = async () => {
+    if (!currentUser?.id) {
+      const errorMsg = 'No current user ID available. Please log in again.';
+      console.error(errorMsg);
+      message.error(errorMsg);
+      window.location.href = '/login';
+      return;
+    }
+
+    try {
+      console.log(`[${new Date().toISOString()}] Fetching tasks for user:`, {
+        userId: currentUser.id,
+        filter,
+        hasToken: !!localStorage.getItem('token')
+      });
+      
+      setLoading(true);
+      const tasksData = await getWorkerTasks(currentUser.id, filter);
+      
+      console.log(`[${new Date().toISOString()}] Successfully fetched tasks:`, {
+        count: Array.isArray(tasksData) ? tasksData.length : 0,
+        hasData: !!tasksData
+      });
+      
+      setTasks(Array.isArray(tasksData) ? tasksData : []);
+      
+      if (!tasksData || tasksData.length === 0) {
+        console.log(`[${new Date().toISOString()}] No tasks found for user:`, currentUser.id);
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error fetching tasks:`, error);
+      message.error('Failed to fetch tasks. Please try again.');
+      
+      if (error.response && error.response.status === 401) {
+        console.log('Token expired or invalid, redirecting to login');
+        window.location.href = '/login';
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (taskId, newStatus) => {
+    if (!currentUser?.id) {
+      message.error('Please log in to update task status');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log(`[${new Date().toISOString()}] Updating task status:`, { taskId, newStatus });
+      
+      await updateTaskStatus(currentUser.id, taskId, { status: newStatus });
+      message.success(`Task marked as ${newStatus}`);
+      
+      await fetchTasks();
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] Error updating task status:`, error);
+      
+      let errorMessage = 'Failed to update task status';
+      if (error.response) {
+        errorMessage = error.response.data?.message || errorMessage;
+        
+        if (error.response.status === 401) {
+          errorMessage = 'Session expired. Please log in again.';
+          window.location.href = '/login';
+        } else if (error.response.status === 403) {
+          errorMessage = 'You do not have permission to update this task';
+        } else if (error.response.status === 404) {
+          errorMessage = 'Task not found';
+        }
+      } else if (error.request) {
+        errorMessage = 'No response from server. Please check your connection.';
+      }
+      
+      message.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to render task status tag
+  const renderStatusTag = (status) => {
+    let color = 'default';
+    let icon = null;
+    let text = status;
+
+    switch (status) {
+      case 'pending':
+        color = 'orange';
+        icon = <ClockCircleOutlined />;
+        text = 'Pending';
+        break;
+      case 'in-progress':
+        color = 'blue';
+        icon = <ClockCircleOutlined />;
+        text = 'In Progress';
+        break;
+      case 'completed':
+        color = 'green';
+        icon = <CheckCircleOutlined />;
+        text = 'Completed';
+        break;
+      default:
+        break;
+    }
+
+    return (
+      <Tag color={color} icon={icon}>
+        {text}
+      </Tag>
+    );
+  };
+
+  // Function to render task priority
+  const renderPriority = (priority) => {
+    const priorityMap = {
+      high: { color: 'red', text: 'High' },
+      medium: { color: 'orange', text: 'Medium' },
+      low: { color: 'green', text: 'Low' },
+    };
+
+    const { color, text } = priorityMap[priority] || { color: 'default', text: priority };
+    return <Tag color={color}>{text}</Tag>;
+  };
+
+  // Function to render task card
+  const renderTaskCard = (task) => {
+    return (
+      <Card 
+        key={task._id || task.id}
+        className="mb-4"
+        title={
+          <div className="flex justify-between items-center">
+            <span>{task.title}</span>
+            {renderStatusTag(task.status)}
+          </div>
+        }
+        extra={
+          <div className="flex items-center space-x-2">
+            {renderPriority(task.priority)}
+            {task.dueDate && (
+              <Tag icon={<ClockCircleOutlined />}>
+                Due: {new Date(task.dueDate).toLocaleDateString()}
+              </Tag>
+            )}
+          </div>
+        }
+      >
+        <div className="space-y-2">
+          {task.description && <p>{task.description}</p>}
+          
+          <div className="flex justify-between items-center mt-4">
+            <div>
+              {task.assignedBy && (
+                <Text type="secondary" className="text-sm">
+                  Assigned by: {task.assignedBy.name || 'Unknown'}
+                </Text>
+              )}
+            </div>
+            <div className="space-x-2">
+              {task.status !== 'completed' && (
+                <Button 
+                  type="primary" 
+                  size="small"
+                  onClick={() => handleStatusUpdate(task._id || task.id, 'in-progress')}
+                  disabled={task.status === 'in-progress'}
+                >
+                  Start Task
+                </Button>
+              )}
+              {task.status !== 'completed' && (
+                <Button 
+                  type="primary" 
+                  size="small"
+                  onClick={() => handleStatusUpdate(task._id || task.id, 'completed')}
+                >
+                  Mark Complete
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
+  // Filter tasks based on status
+  const filteredTasks = tasks.filter(task => {
+    if (filter === 'all') return true;
+    return task.status === filter;
+  });
+
+  return (
+    <div className="p-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">My Tasks</h1>
+        <div className="space-x-2">
+          <Button 
+            type={filter === 'all' ? 'primary' : 'default'}
+            onClick={() => setFilter('all')}
+          >
+            All Tasks
+          </Button>
+          <Button 
+            type={filter === 'pending' ? 'primary' : 'default'}
+            onClick={() => setFilter('pending')}
+          >
+            Pending
+          </Button>
+          <Button 
+            type={filter === 'in-progress' ? 'primary' : 'default'}
+            onClick={() => setFilter('in-progress')}
+          >
+            In Progress
+          </Button>
+          <Button 
+            type={filter === 'completed' ? 'primary' : 'default'}
+            onClick={() => setFilter('completed')}
+          >
+            Completed
+          </Button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center items-center h-64">
+          <Spin size="large" />
+        </div>
+      ) : filteredTasks.length > 0 ? (
+        <div className="space-y-4">
+          {filteredTasks.map(renderTaskCard)}
+        </div>
+      ) : (
+        <Empty 
+          description={
+            <span className="text-gray-500">
+              {filter === 'all' 
+                ? 'No tasks assigned to you yet.' 
+                : `No ${filter} tasks found.`}
+            </span>
+          }
+          className="flex flex-col items-center justify-center py-12"
+        >
+          <Button 
+            type="primary" 
+            onClick={fetchTasks}
+            loading={loading}
+            className="mt-4"
+          >
+            Refresh Tasks
+          </Button>
+        </Empty>
+      )}
+    </div>
+  );
+};
+
+export default MyTasks;
