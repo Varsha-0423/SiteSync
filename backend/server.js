@@ -39,12 +39,16 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Routes
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tasks', require('./routes/taskRoutes'));
 app.use('/api/work', require('./routes/workRoutes'));
 app.use('/api/worker', require('./routes/workerRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
 
 // Error handler middleware (should be after all other middleware and routes)
 app.use(errorHandler);

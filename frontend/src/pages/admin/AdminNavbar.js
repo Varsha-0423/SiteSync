@@ -25,8 +25,7 @@ const AdminNavbar = () => {
     if (path.startsWith('/dashboard')) return '1';
     if (path.includes('create-user')) return '2';
     if (path.includes('upload-tasks')) return '3';
-    if (path.includes('today-tasks')) return '4';
-    if (path.includes('task-calendar')) return '5';
+    if (path.includes('schedule-tasks')) return '4';
     return '1'; // Default to dashboard
   };
 
@@ -77,10 +76,7 @@ const AdminNavbar = () => {
         </Menu.Item>
         */}
         <Menu.Item key="4" icon={<CalendarOutlined />}>
-          <NavLink to="/admin/today-tasks">Today's Tasks</NavLink>
-        </Menu.Item>
-        <Menu.Item key="5" icon={<CalendarOutlined />}>
-          <NavLink to="/admin/task-calendar">Task Calendar</NavLink>
+          <NavLink to="/admin/schedule-tasks">Schedule Tasks</NavLink>
         </Menu.Item>
       </Menu>
       <Button 

@@ -9,12 +9,11 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminUploadExcel from "./pages/admin/AdminUploadExcel";
 import TaskAssignment from "./pages/admin/TaskAssignment";
-import AdminTodayTasks from "./pages/admin/AdminTodayTasks";
-import TaskCalendar from "./pages/admin/TaskCalendar";
+import TaskScheduler from "./pages/admin/TaskScheduler";
 import SupervisorDashboard from "./pages/supervisor/SupervisorDashboard";
 import SupervisorLayout from "./pages/supervisor/SupervisorLayout";
 import SupervisorTaskAssignment from "./pages/supervisor/SupervisorTaskAssignment";
-import SubmitWork from "./pages/supervisor/tasks/SubmitWork";
+// import SubmitWork from "./pages/supervisor/tasks/SubmitWork";
 
 function App() {
   return (
@@ -104,7 +103,7 @@ function AppContent() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<SupervisorDashboard />} />
             <Route path="assign-tasks" element={<SupervisorTaskAssignment />} />
-            <Route path="submit-work" element={<SubmitWork />} />
+            {/* <Route path="submit-work" element={<SubmitWork />} /> */}
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Route>
           
@@ -121,8 +120,7 @@ function AppContent() {
             <Route path="create-user" element={<AdminCreateUser />} />
             <Route path="upload-tasks" element={<AdminUploadExcel />} />
             <Route path="assign-tasks" element={<TaskAssignment />} />
-            <Route path="today-tasks" element={<AdminTodayTasks />} />
-            <Route path="task-calendar" element={<TaskCalendar />} />
+            <Route path="schedule-tasks" element={<TaskScheduler />} />
             <Route path="*" element={<Navigate to="create-user" replace />} />
           </Route>
           

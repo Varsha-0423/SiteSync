@@ -62,9 +62,9 @@ const SupervisorNavbar = () => {
           <Menu.Item key="1" icon={<CheckSquareOutlined />}>
             <NavLink to="/supervisor/assign-tasks">Assign Tasks</NavLink>
           </Menu.Item>
-          <Menu.Item key="2" icon={<UploadOutlined />}>
+          {/* <Menu.Item key="2" icon={<UploadOutlined />}>
             <NavLink to="/supervisor/submit-work">Submit Work</NavLink>
-          </Menu.Item>
+          </Menu.Item> */}
         </Menu>
       </div>
       <Button 
