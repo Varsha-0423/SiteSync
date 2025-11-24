@@ -8,6 +8,7 @@ const {
   updateUser,
   deleteUser
 } = require('../controllers/userController');
+const { upload, processBulkUpload } = require('../controllers/bulkUserController');
 
 // Admin and supervisor routes for getting users
 router.route('/')
@@ -20,6 +21,15 @@ router.route('/')
   })
   .post(protect, admin, createUser);
 
+// Bulk upload users via Excel
+router.post('/bulk-upload', 
+  protect, 
+  admin, 
+  upload.single('file'), 
+  processBulkUpload
+);
+
+// Single user operations
 router.route('/:id')
   .get(protect, admin, getUserById)
   .put(protect, admin, updateUser)

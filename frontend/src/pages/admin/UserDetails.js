@@ -39,15 +39,26 @@ function UserDetails() {
   const fetchUserDetails = async () => {
     try {
       setLoading(true);
+      console.log('Fetching user with ID:', userId);
       const response = await api.get(`/users/${userId}`);
-      if (response.data.success && response.data.data) {
-        setUser(response.data.data);
-      } else {
-        throw new Error('Invalid response format');
+      console.log('User details response:', response.data);
+      
+      if (response.data) {
+        // Check both response formats that might come from the backend
+        const userData = response.data.data || response.data;
+        if (userData) {
+          setUser(userData);
+          return;
+        }
       }
+      throw new Error('Invalid user data received');
     } catch (error) {
-      message.error(error.response?.data?.message || "Failed to fetch user details");
       console.error("Error fetching user details:", error);
+      const errorMessage = error.response?.data?.message || 
+                         error.message || 
+                         'Failed to fetch user details. Please try again.';
+      message.error(errorMessage);
+      setUser(null);
     } finally {
       setLoading(false);
     }

@@ -26,21 +26,29 @@ function AdminUploadExcel() {
     formData.append("file", file);
 
     try {
-      const endpoint = activeTab === 'workers' 
-        ? "/users/upload-excel" 
-        : "/tasks/upload-excel";
+      const endpoint = "/users/bulk-upload";
       
       const response = await api.post(endpoint, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
+        headers: { 
+          "Content-Type": "multipart/form-data",
+          "Authorization": `Bearer ${localStorage.getItem('token')}`
+        }
       });
       
-      setMessage(response.data.message);
-      setUploadedData(response.data.data || []);
+      setMessage(response.data.message || 'Bulk upload completed');
       
-      if (response.data.errors && response.data.errors.length > 0) {
-        antMessage.warning(`Some rows had issues: ${response.data.errors.join(", ")}`);
-      } else {
-        antMessage.success(`Successfully uploaded ${response.data.data?.length || 0} records`);
+      if (response.data.results) {
+        const { success, total, errors } = response.data.results;
+        
+        if (success > 0) {
+          antMessage.success(`Successfully uploaded ${success} out of ${total} workers`);
+        }
+        
+        if (errors && errors.length > 0) {
+          const errorMessages = errors.map(e => `Row ${e.row}: ${e.message}`).join('\n');
+          antMessage.warning(`${errors.length} rows had issues. See details in the message below.`);
+          setMessage(prev => `${prev}\n\nErrors:\n${errorMessages}`);
+        }
       }
     } catch (err) {
       console.error('Upload error:', err);
@@ -64,19 +72,21 @@ function AdminUploadExcel() {
       <thead>
         <tr style={{ backgroundColor: '#f8f9fa' }}>
           <th style={tableHeaderStyle}>Name</th>
+          <th style={tableHeaderStyle}>Worker ID</th>
           <th style={tableHeaderStyle}>Email</th>
           <th style={tableHeaderStyle}>Role</th>
-          <th style={tableHeaderStyle}>Created At</th>
+          <th style={tableHeaderStyle}>Status</th>
         </tr>
       </thead>
       <tbody>
         {uploadedData.map((user, index) => (
           <tr key={user._id || index}>
             <td style={tableCellStyle}>{user.name}</td>
+            <td style={tableCellStyle}>{user.workerId || '-'}</td>
             <td style={tableCellStyle}>{user.email}</td>
             <td style={tableCellStyle}>{user.role || 'worker'}</td>
-            <td style={tableCellStyle}>
-              {new Date(user.createdAt).toLocaleDateString()}
+            <td style={{...tableCellStyle, color: user.error ? '#ff4d4f' : '#52c41a'}}>
+              {user.error ? 'Error' : 'Success'}
             </td>
           </tr>
         ))}
@@ -144,7 +154,16 @@ function AdminUploadExcel() {
           key="workers"
         >
           <div style={{ margin: '20px 0' }}>
-            <p>Upload an Excel file with worker details. Required columns: name, email, role</p>
+            <p>Upload an Excel file with worker details. Required columns:</p>
+            <ul>
+              <li><strong>name</strong> - Full name of the worker</li>
+              <li><strong>workerId</strong> - Unique ID for the worker</li>
+              <li><strong>email</strong> - Valid email address</li>
+              <li><strong>role</strong> - worker or supervisor</li>
+            </ul>
+            <p style={{ marginTop: '10px' }}>
+              <strong>Note:</strong> All workers will be created with a default password that they can reset later.
+            </p>
           </div>
         </TabPane>
         <TabPane
