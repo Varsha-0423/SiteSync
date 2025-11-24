@@ -1,68 +1,107 @@
 import React, { useState, useEffect } from "react";
 import api from "../../api";
+import TaskAssignmentComponent from "../../components/TaskAssignment";
 
 function TaskAssignment() {
-  const [tasks, setTasks] = useState([]);
-  const [workers, setWorkers] = useState([]);
+  const [allTasks, setAllTasks] = useState([]);
+  const [todayTasks, setTodayTasks] = useState([]);
+  const [selectedTaskIds, setSelectedTaskIds] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [supervisors, setSupervisors] = useState([]);
+  const [selectedSupervisor, setSelectedSupervisor] = useState('');
+  const [dateError, setDateError] = useState('');
+  const [supervisorError, setSupervisorError] = useState('');
+  const [tasksError, setTasksError] = useState('');
 
   useEffect(() => {
-    fetchTasks();
-    fetchWorkers();
+    fetchAllTasks();
+    fetchTodayTasks();
+    fetchSupervisors();
   }, []);
 
-  const fetchTasks = async () => {
+  const fetchAllTasks = async () => {
     try {
-      setLoading(true);
-      const response = await api.get('/tasks/today');
-      setTasks(response.data.data || []);
+      const response = await api.get('/tasks');
+      setAllTasks(response.data.data || []);
     } catch (error) {
-      console.error('Error fetching tasks:', error);
+      console.error('Error fetching all tasks:', error);
       setMessage('Error fetching tasks');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const fetchWorkers = async () => {
+  const fetchTodayTasks = async () => {
     try {
-      const response = await api.get('/users?role=worker');
-      setWorkers(response.data.data || []);
+      const response = await api.get('/tasks/today');
+      setTodayTasks(response.data.data || []);
+      setSelectedTaskIds(response.data.data?.map(task => task._id) || []);
     } catch (error) {
-      console.error('Error fetching workers:', error);
+      console.error('Error fetching today tasks:', error);
     }
   };
 
-  const handleAssignmentChange = async (taskId, workerIds) => {
+  const fetchSupervisors = async () => {
+    try {
+      // Fetch all users
+      const response = await api.get('/users');
+      // Filter users with role 'supervisor'
+      const supervisorList = (response.data.data || []).filter(user => user.role === 'supervisor');
+      setSupervisors(supervisorList);
+    } catch (error) {
+      console.error('Error fetching supervisors:', error);
+    }
+  };
+
+  const handleTaskToggle = (taskId) => {
+    setSelectedTaskIds(prev => {
+      if (prev.includes(taskId)) {
+        return prev.filter(id => id !== taskId);
+      } else {
+        return [...prev, taskId];
+      }
+    });
+  };
+
+  const handleUpdateTodayTasks = async () => {
+    setModalOpen(true);
+  };
+
+  const handleModalUpdate = async () => {
+    let valid = true;
+    setDateError('');
+    setSupervisorError('');
+    setTasksError('');
+
+    if (!selectedDate) {
+      setDateError('Date is required');
+      valid = false;
+    }
+    if (!selectedSupervisor) {
+      setSupervisorError('Supervisor is required');
+      valid = false;
+    }
+    if (selectedTaskIds.length === 0) {
+      setTasksError('At least one task must be selected');
+      valid = false;
+    }
+    if (!valid) return;
+
     try {
       setLoading(true);
-      await api.put(`/tasks/${taskId}`, { assignedWorkers: workerIds });
-      
-      // Refresh tasks to show updated assignments
-      await fetchTasks();
-      setMessage('Task assignment updated successfully');
+      await api.put('/tasks/update-today', {
+        taskIds: selectedTaskIds,
+        date: selectedDate,
+        supervisorId: selectedSupervisor
+      });
+      await fetchTodayTasks();
+      setMessage('Today\'s tasks updated successfully');
       setTimeout(() => setMessage(''), 3000);
+      setModalOpen(false);
     } catch (error) {
-      console.error('Error updating task assignment:', error);
-      setMessage('Error updating task assignment');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStatusChange = async (taskId, status) => {
-    try {
-      setLoading(true);
-      await api.put(`/tasks/${taskId}`, { status });
-      
-      // Refresh tasks to show updated status
-      await fetchTasks();
-      setMessage('Task status updated successfully');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      console.error('Error updating task status:', error);
-      setMessage('Error updating task status');
+      console.error('Error updating today tasks:', error);
+      setMessage('Error updating today tasks');
     } finally {
       setLoading(false);
     }
@@ -90,7 +129,10 @@ function TaskAssignment() {
 
   return (
     <div style={{ padding: '20px' }}>
-      <h2>Task Assignment - Today's Tasks</h2>
+      <h2>Select Today's Tasks</h2>
+      <p style={{ color: '#666', marginBottom: '20px' }}>
+        Choose which tasks should be available for supervisors to assign to workers today.
+      </p>
 
       {message && (
         <div style={{ 
@@ -104,15 +146,37 @@ function TaskAssignment() {
         </div>
       )}
 
-      {loading && tasks.length === 0 ? (
-        <div>Loading tasks...</div>
-      ) : tasks.length === 0 ? (
-        <div>No tasks found for today. Please select tasks in "Today's Tasks" page first.</div>
-      ) : (
-        <div>
-          <h3>Tasks for Today ({tasks.length})</h3>
+      <div style={{ marginBottom: '20px' }}>
+        <h3>Current Today's Tasks ({todayTasks.length})</h3>
+        {todayTasks.length === 0 ? (
+          <p style={{ color: '#666', fontStyle: 'italic' }}>No tasks selected for today</p>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '20px' }}>
+            {todayTasks.map((task) => (
+              <span
+                key={task._id}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#e9ecef',
+                  borderRadius: '16px',
+                  fontSize: '14px',
+                  border: '1px solid #dee2e6'
+                }}
+              >
+                {task.taskName}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ marginBottom: '20px' }}>
+        <h3>All Available Tasks ({allTasks.length})</h3>
+        {allTasks.length === 0 ? (
+          <p style={{ color: '#666', fontStyle: 'italic' }}>No tasks available. Upload tasks first.</p>
+        ) : (
           <div style={{ display: 'grid', gap: '15px' }}>
-            {tasks.map((task) => (
+            {allTasks.map((task) => (
               <div 
                 key={task._id} 
                 style={{ 
@@ -120,17 +184,37 @@ function TaskAssignment() {
                   borderRadius: '8px', 
                   padding: '15px',
                   backgroundColor: '#fff',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  borderLeft: selectedTaskIds.includes(task._id) ? '4px solid #007bff' : '4px solid transparent'
                 }}
+                onClick={() => handleTaskToggle(task._id)}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div style={{ flex: 1 }}>
-                    <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{task.taskName}</h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedTaskIds.includes(task._id)}
+                        onChange={() => handleTaskToggle(task._id)}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <h4 style={{ margin: '0', color: '#333' }}>{task.taskName}</h4>
+                    </div>
                     {task.description && (
-                      <p style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>
+                      <p style={{ margin: '0 0 10px 30px', color: '#666', fontSize: '14px' }}>
                         {task.description}
                       </p>
                     )}
+                    <div style={{ marginLeft: '30px', fontSize: '14px', color: '#666' }}>
+                      <span>Date: {new Date(task.date).toLocaleDateString()}</span>
+                      {task.assignedWorkers && task.assignedWorkers.length > 0 && (
+                        <span style={{ marginLeft: '15px' }}>
+                          Assigned: {task.assignedWorkers.map(w => w.name).join(', ')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <span style={{
@@ -143,87 +227,214 @@ function TaskAssignment() {
                     }}>
                       {task.priority.toUpperCase()}
                     </span>
-                    <select
-                      value={task.status}
-                      onChange={(e) => handleStatusChange(task._id, e.target.value)}
-                      style={{
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        border: '1px solid #ddd',
-                        fontSize: '12px',
-                        backgroundColor: getStatusColor(task.status),
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      <option value="pending">PENDING</option>
-                      <option value="on-schedule">ON-SCHEDULE</option>
-                      <option value="behind">BEHIND</option>
-                      <option value="ahead">AHEAD</option>
-                      <option value="completed">COMPLETED</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>
-                      Assign Workers:
-                    </label>
-                    <select
-                      multiple
-                      value={task.assignedWorkers?.map(w => w._id) || []}
-                      onChange={(e) => {
-                        const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-                        handleAssignmentChange(task._id, selectedOptions);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        borderRadius: '4px',
-                        border: '1px solid #ddd',
-                        minHeight: '60px',
-                        fontSize: '14px'
-                      }}
-                    >
-                      {workers.map((worker) => (
-                        <option key={worker._id} value={worker._id}>
-                          {worker.name}
-                        </option>
-                      ))}
-                    </select>
-                    <small style={{ color: '#666', fontSize: '12px' }}>
-                      Hold Ctrl/Cmd to select multiple workers
-                    </small>
-                  </div>
-
-                  <div style={{ minWidth: '200px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px' }}>
-                      Currently Assigned:
-                    </label>
-                    <div style={{ 
-                      padding: '8px', 
-                      backgroundColor: '#f8f9fa', 
-                      borderRadius: '4px',
-                      minHeight: '60px',
-                      fontSize: '14px'
+                    <span style={{
+                      padding: '4px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      backgroundColor: getStatusColor(task.status),
+                      color: 'white',
+                      fontWeight: 'bold'
                     }}>
-                      {task.assignedWorkers && task.assignedWorkers.length > 0 ? (
-                        <div>
-                          {task.assignedWorkers.map((worker) => (
-                            <div key={worker._id} style={{ marginBottom: '2px' }}>
-                              • {worker.name}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span style={{ color: '#999', fontStyle: 'italic' }}>No workers assigned</span>
-                      )}
-                    </div>
+                      {task.status.toUpperCase()}
+                    </span>
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {allTasks.length > 0 && (
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button
+            onClick={() => setSelectedTaskIds([])}
+            style={{
+              padding: '10px 20px',
+              border: '1px solid #6c757d',
+              backgroundColor: '#fff',
+              color: '#6c757d',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Clear Selection
+          </button>
+          <button
+            onClick={handleUpdateTodayTasks}
+            disabled={loading}
+            style={{
+              padding: '10px 20px',
+              border: 'none',
+              backgroundColor: loading ? '#6c757d' : '#007bff',
+              color: 'white',
+              borderRadius: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {loading ? 'Updating...' : `Update Today's Tasks (${selectedTaskIds.length})`}
+          </button>
+        </div>
+      )}
+
+      {/* Modal Popup */}
+      {modalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.3)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff',
+            padding: '30px',
+            borderRadius: '8px',
+            minWidth: '400px',
+            position: 'relative',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.2)'
+          }}>
+            {/* Close Icon */}
+            <span
+              onClick={() => setModalOpen(false)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '16px',
+                fontSize: '22px',
+                cursor: 'pointer',
+                color: '#888'
+              }}
+              title="Close"
+            >
+              &times;
+            </span>
+            <h3 style={{ marginTop: 0 }}>Assign Today's Tasks</h3>
+            {/* Date and Supervisor selection in a row */}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
+              <div style={{ flex: 1 }}>
+                <label>
+                  Date:&nbsp;
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={e => setSelectedDate(e.target.value)}
+                    style={{
+                      padding: '6px',
+                      borderRadius: '4px',
+                      border: dateError ? '2px solid red' : '1px solid #ccc'
+                    }}
+                  />
+                </label>
+                {dateError && (
+                  <div style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{dateError}</div>
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ marginLeft: 'auto' }}>
+                  Supervisor:&nbsp;
+                  <select
+                    value={selectedSupervisor}
+                    onChange={e => setSelectedSupervisor(e.target.value)}
+                    style={{
+                      padding: '6px',
+                      borderRadius: '4px',
+                      border: supervisorError ? '2px solid red' : '1px solid #ccc',
+                      minWidth: '140px'
+                    }}
+                  >
+                    <option value="">Select Supervisor</option>
+                    {supervisors.map(sup => (
+                      <option key={sup._id} value={sup._id}>{sup.name}</option>
+                    ))}
+                  </select>
+                </label>
+                {supervisorError && (
+                  <div style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{supervisorError}</div>
+                )}
+              </div>
+            </div>
+            {/* Task selection list */}
+            <div style={{ marginBottom: '15px' }}>
+              <h4 style={{ marginBottom: '10px' }}>
+                Select Tasks for Today
+              </h4>
+              <div style={{
+                maxHeight: '200px',
+                overflowY: 'auto',
+                border: tasksError ? '2px solid red' : '1px solid #eee',
+                borderRadius: '6px',
+                padding: '10px',
+                background: '#fafafa'
+              }}>
+                {allTasks.length === 0 ? (
+                  <p style={{ color: '#666', fontStyle: 'italic' }}>No tasks available.</p>
+                ) : (
+                  allTasks.map(task => (
+                    <div key={task._id} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedTaskIds.includes(task._id)}
+                        onChange={() => handleTaskToggle(task._id)}
+                        style={{ marginRight: '10px', cursor: 'pointer' }}
+                      />
+                      <span style={{
+                        fontWeight: selectedTaskIds.includes(task._id) ? 'bold' : 'normal',
+                        color: '#333'
+                      }}>
+                        {task.taskName}
+                      </span>
+                      <span style={{
+                        marginLeft: 'auto',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        backgroundColor: getPriorityColor(task.priority),
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}>
+                        {task.priority}
+                      </span>
+                    </div>
+                  ))
+                )}
+
+              </div>
+              {tasksError && (
+                <div style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{tasksError}</div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setModalOpen(false)}
+                style={{
+                  padding: '8px 18px',
+                  border: '1px solid #6c757d',
+                  backgroundColor: '#fff',
+                  color: '#6c757d',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+              <button
+                onClick={handleModalUpdate}
+                disabled={loading}
+                style={{
+                  padding: '8px 18px',
+                  border: 'none',
+                  backgroundColor: loading ? '#6c757d' : '#007bff',
+                  color: 'white',
+                  borderRadius: '4px',
+                  cursor: loading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {loading ? 'Updating...' : 'Update'}
+              </button>
+            </div>
           </div>
         </div>
       )}

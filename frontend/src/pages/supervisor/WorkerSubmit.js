@@ -89,13 +89,14 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted }) {
       let photoUrls = [];
       
       if (formData.attachments && formData.attachments.length > 0) {
+        console.log('Starting file uploads...');
         try {
           const uploadPromises = formData.attachments.map(async (file) => {
             const formData = new FormData();
             formData.append('file', file);
             
             // Use the correct upload endpoint
-            const response = await api.post('/api/upload', formData, {
+            const response = await api.post('/api/uploads', formData, {
               headers: {
                 'Content-Type': 'multipart/form-data',
                 'Authorization': `Bearer ${localStorage.getItem('token')}` // Include auth token
@@ -117,10 +118,15 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted }) {
           
           if (photoUrls.length === 0) {
             console.warn('No files were successfully uploaded');
+            // Don't fail the entire submission if no files were uploaded
+            // Just continue with an empty photoUrls array
           }
         } catch (uploadError) {
           console.error('Error uploading files:', uploadError);
-          throw new Error(uploadError.response?.data?.message || 'Failed to upload one or more files');
+          // Instead of throwing, log the error and continue with empty photoUrls
+          // This allows the work submission to continue even if file upload fails
+          console.warn('File upload failed, but continuing with work submission');
+          photoUrls = [];
         }
       }
       

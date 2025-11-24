@@ -79,18 +79,6 @@ function AppContent() {
             } 
           />
           
-          {/* Supervisor Routes */}
-          <Route 
-            path="/supervisor/dashboard" 
-            element={
-              <ProtectedRoute allowedRoles={['supervisor']}>
-                <SupervisorLayout>
-                  <SupervisorDashboard />
-                </SupervisorLayout>
-              </ProtectedRoute>
-            } 
-          />
-          
           {/* Supervisor Routes with worker functionality */}
           <Route 
             path="/supervisor" 

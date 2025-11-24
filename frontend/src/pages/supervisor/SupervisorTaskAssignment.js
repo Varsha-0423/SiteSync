@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react"; 
 import api from "../../api";
 import { useNavigate } from "react-router-dom";
 import WorkerSubmit from "./WorkerSubmit";
@@ -33,7 +33,9 @@ function SupervisorTaskAssignment() {
   const fetchWorkers = async () => {
     try {
       const response = await api.get("/users?role=worker");
-      setWorkers(response.data.data || []);
+      const workersData = response.data.data || [];
+      console.log('Fetched workers:', workersData);
+      setWorkers(workersData);
     } catch (error) {
       console.error("Error fetching workers:", error);
     }
@@ -45,9 +47,10 @@ function SupervisorTaskAssignment() {
       console.log('Raw workerIds:', workerIds); // Debug log
 
       // Ensure workerIds is an array and filter out any invalid IDs
-      const validWorkerIds = Array.isArray(workerIds) 
-        ? workerIds.filter(id => id && id.length === 24)
-        : [];
+      const validWorkerIds = Array.isArray(workerIds)
+  ? workerIds.filter(id => !!id)
+  : [];
+
 
       console.log('Valid worker IDs:', validWorkerIds); // Debug log
 
@@ -93,8 +96,9 @@ function SupervisorTaskAssignment() {
       if (response.data.success) {
         // Get the full worker objects for the assigned workers
         const updatedAssignedWorkers = validWorkerIds.map(id => 
-          workers.find(w => w._id === id) || id
-        );
+  workers.find(w => w._id === id)
+).filter(Boolean);
+
 
         // Update the UI with the new worker assignments
         setTasks(prevTasks =>
@@ -108,8 +112,11 @@ function SupervisorTaskAssignment() {
           )
         );
         
-        setMessage('Workers assigned successfully');
-        setTimeout(() => setMessage(''), 3000);
+        if (response.data.success) {
+  await fetchTodayTasks();
+  setMessage('Workers assigned successfully');
+  setTimeout(() => setMessage(''), 3000);
+}
       }
     } catch (error) {
       console.error('Error assigning workers:', error);
@@ -293,21 +300,32 @@ function SupervisorTaskAssignment() {
                       fontSize: "12px",
                       backgroundColor: getPriorityColor(task.priority),
                       color: "white",
+                      height: "24px"
                     }}
                   >
                     {task.priority.toUpperCase()}
                   </span>
-                  <span
+                  <select
+                    value={task.status}
+                    onChange={(e) => handleStatusChange(task._id, e.target.value)}
                     style={{
                       padding: "4px 8px",
-                      borderRadius: "12px",
-                      fontSize: "12px",
+                      borderRadius: "4px",
+                      fontSize: "11px",
                       backgroundColor: getStatusColor(task.status),
                       color: "white",
+                      border: "none",
+                      cursor: "pointer",
+                      fontWeight: "bold",
+                      height: "24px"
                     }}
                   >
-                    {task.status.toUpperCase()}
-                  </span>
+                    <option value="pending">PENDING</option>
+                    <option value="on-schedule">ON-SCHEDULE</option>
+                    <option value="behind">BEHIND</option>
+                    <option value="ahead">AHEAD</option>
+                    <option value="completed">COMPLETED</option>
+                  </select>
                 </div>
               </div>
 
@@ -318,16 +336,12 @@ function SupervisorTaskAssignment() {
 
                   <select
                     multiple
-                    value={task.assignedWorkers?.map((w) =>
-                      typeof w === "object" ? w._id : w
-                    )}
+                    value={(task.assignedWorkers || []).map(w => typeof w === "object" && w._id ? w._id : null).filter(Boolean)}
                     onChange={(e) => {
-                      // Get all selected options and map to their values
                       const selected = Array.from(e.target.selectedOptions, opt => opt.value);
-                      console.log('Selected worker IDs:', selected); // Debug log
-                      // Pass the raw array of IDs directly
                       handleAssignmentChange(task._id, selected);
                     }}
+
                     style={{
                       width: "100%",
                       padding: "8px",
@@ -337,7 +351,7 @@ function SupervisorTaskAssignment() {
                     }}
                   >
                     {workers.map((worker) => (
-                      <option key={worker._id} value={worker._id}>
+                      <option key={worker._id || worker.id} value={worker._id || worker.id}>
                         {worker.name}
                       </option>
                     ))}
@@ -361,10 +375,9 @@ function SupervisorTaskAssignment() {
                       <ul>
                         {task.assignedWorkers.map((worker, index) => {
                           const workerName =
-                            typeof worker === "object"
+                            typeof worker === "object" && worker.name
                               ? worker.name
-                              : workers.find((w) => w._id === worker)?.name ||
-                                `Worker (${worker})`;
+                              : workers.find((w) => w._id === worker)?.name || "Unknown";
 
                           return <li key={index}>{workerName}</li>;
                         })}
@@ -380,14 +393,15 @@ function SupervisorTaskAssignment() {
               <button
                 onClick={() => openWorkerSubmit(task)}
                 style={{
-                  marginTop: "15px",
                   padding: "10px 16px",
                   backgroundColor: "#007bff",
                   color: "white",
                   border: "none",
                   borderRadius: "5px",
                   cursor: "pointer",
-                  width: "100%",
+                  width: "200px",
+                  display: "block",
+                  margin: "15px auto 0 auto",
                   fontWeight: "bold",
                 }}
               >

@@ -19,9 +19,10 @@ const SupervisorNavbar = () => {
   // Determine which menu item should be selected based on the current path
   const getSelectedKey = () => {
     const path = location.pathname;
+    if (path.includes('dashboard')) return '2';
     if (path.includes('assign-tasks')) return '1';
     if (path.includes('submit-work')) return '2';
-    return '1'; // Default to assign tasks
+    return '2'; // Default to dashboard
   };
 
   const handleLogout = () => {
@@ -59,12 +60,13 @@ const SupervisorNavbar = () => {
             backgroundColor: 'transparent'
           }}
         >
+          <Menu.Item key="2" icon={<UploadOutlined />}>
+            <NavLink to="/supervisor/dashboard">Dashboard</NavLink>
+          </Menu.Item>
           <Menu.Item key="1" icon={<CheckSquareOutlined />}>
             <NavLink to="/supervisor/assign-tasks">Assign Tasks</NavLink>
           </Menu.Item>
-          {/* <Menu.Item key="2" icon={<UploadOutlined />}>
-            <NavLink to="/supervisor/submit-work">Submit Work</NavLink>
-          </Menu.Item> */}
+          
         </Menu>
       </div>
       <Button 
