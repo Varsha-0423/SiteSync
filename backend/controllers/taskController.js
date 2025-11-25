@@ -8,7 +8,7 @@ const path = require('path');
 // @desc    Get tasks assigned to a specific worker
 // @route   GET /api/worker/:workerId/tasks
 // @access  Private/Worker
-exports.getWorkerTasks = async (req, res) => {
+const getWorkerTasks = async (req, res) => {
   console.log('=== getWorkerTasks START ===');
   const { workerId } = req.params;
   const { status = 'all' } = req.query;
@@ -103,8 +103,6 @@ exports.getWorkerTasks = async (req, res) => {
       // Execute the query with better error handling
       tasks = await Task.find(query)
         .sort({ date: 1, priority: 1 })
-        .populate('assignedBy', 'name')
-        .populate('assignedWorkers', 'name email')
         .lean()
         .exec();
         
@@ -158,7 +156,7 @@ exports.getWorkerTasks = async (req, res) => {
 // @desc    Get all tasks
 // @route   GET /api/tasks
 // @access  Private/Admin/Supervisor
-exports.getTasks = async (req, res) => {
+const getTasks = async (req, res) => {
   try {
     const { status, assignedWorker, date } = req.query;
     
@@ -180,8 +178,6 @@ exports.getTasks = async (req, res) => {
     }
 
     const tasks = await Task.find(filter)
-      .populate('assignedWorkers', 'name email')
-      .populate('assignedBy', 'name email')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -198,28 +194,39 @@ exports.getTasks = async (req, res) => {
 // @desc    Create a new task (Admin only)
 // @route   POST /api/tasks
 // @access  Private/Admin
-exports.createTask = async (req, res) => {
+const createTask = async (req, res) => {
   try {
-    const { taskName, description, date, assignedWorkers, priority, status, isForToday } = req.body;
+    const { 
+      taskName, 
+      taskTitle, 
+      description, 
+      date, 
+      startDate, 
+      deadline,
+      assignedWorkers, 
+      priority, 
+      status, 
+      isForToday, 
+      supervisor 
+    } = req.body;
 
     const task = await Task.create({
       taskName,
+      taskTitle,
       description,
       date,
+      startDate,
+      deadline,
       assignedWorkers,
-      assignedBy: req.user.id, // Add the admin's ID who is assigning the task
       priority: priority || 'medium',
       status: status || 'pending',
-      isForToday: isForToday || false
+      isForToday: isForToday || false,
+      supervisor
     });
-
-    const populatedTask = await Task.findById(task._id)
-      .populate('assignedWorkers', 'name email')
-      .populate('assignedBy', 'name email');
 
     res.status(201).json({
       success: true,
-      data: populatedTask
+      data: task
     });
   } catch (error) {
     console.error('Error creating task:', error);
@@ -230,11 +237,9 @@ exports.createTask = async (req, res) => {
 // @desc    Get single task by ID
 // @route   GET /api/tasks/:id
 // @access  Private/Admin/Supervisor
-exports.getTaskById = async (req, res) => {
+const getTaskById = async (req, res) => {
   try {
-    const task = await Task.findById(req.params.id)
-      .populate('assignedWorkers', 'name email')
-      .populate('assignedBy', 'name email');
+    const task = await Task.findById(req.params.id);
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
@@ -253,7 +258,7 @@ exports.getTaskById = async (req, res) => {
 // @desc    Update task
 // @route   PUT /api/tasks/:id
 // @access  Private/Admin/Supervisor
-exports.updateTask = async (req, res) => {
+const updateTask = async (req, res) => {
   try {
     console.log('Updating task with ID:', req.params.id);
     console.log('Update data:', req.body);
@@ -286,7 +291,7 @@ exports.updateTask = async (req, res) => {
       req.params.id,
       updateData,
       { new: true, runValidators: true, runSettersOnQuery: true }
-    ).populate('assignedWorkers', 'name email');
+    );
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
@@ -330,7 +335,7 @@ exports.updateTask = async (req, res) => {
 // @desc    Delete task
 // @route   DELETE /api/tasks/:id
 // @access  Private/Admin
-exports.deleteTask = async (req, res) => {
+const deleteTask = async (req, res) => {
   try {
     const task = await Task.findByIdAndDelete(req.params.id);
 
@@ -351,7 +356,7 @@ exports.deleteTask = async (req, res) => {
 // @desc    Get dashboard statistics
 // @route   GET /api/tasks/dashboard-stats
 // @access  Private/Admin/Supervisor
-exports.getDashboardStats = async (req, res) => {
+const getDashboardStats = async (req, res) => {
   try {
     const totalTasks = await Task.countDocuments();
     const onScheduleTasks = await Task.countDocuments({ status: 'on-schedule' });
@@ -388,7 +393,7 @@ exports.getDashboardStats = async (req, res) => {
 // @desc    Upload Excel file and create tasks
 // @route   POST /api/tasks/upload-excel
 // @access  Private/Admin
-exports.uploadExcel = async (req, res) => {
+const uploadExcel = async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
@@ -413,24 +418,18 @@ exports.uploadExcel = async (req, res) => {
         // Map Excel columns to task fields
         const taskData = {
           taskName: row['Task Name'] || row['taskName'] || row['Task'] || `Task ${i + 1}`,
+          taskTitle: row['Task Title'] || row['taskTitle'] || `Task ${i + 1}`,
           description: row['Description'] || row['description'] || '',
           date: row['Date'] || row['date'] || new Date(),
-          priority: row['Priority'] || row['priority'] || 'medium',
-          status: row['Status'] || row['status'] || 'pending',
-          assignedWorkers: [],
-          assignedBy: req.user.id
+          startDate: row['Start Date'] || row['startDate'],
+          deadline: row['Deadline'] || row['deadline'],
+          priority: (row['Priority'] || row['priority'] || 'medium').toLowerCase(),
+          status: (row['Status'] || row['status'] || 'pending').toLowerCase(),
+          supervisor: row['Supervisor'] || row['supervisor']
         };
 
-        // Handle assigned workers if present
-        if (row['Assigned Workers'] || row['assignedWorkers'] || row['Worker']) {
-          const workerNames = (row['Assigned Workers'] || row['assignedWorkers'] || row['Worker']).toString().split(',').map(w => w.trim());
-          const workers = await User.find({ name: { $in: workerNames }, role: 'worker' });
-          taskData.assignedWorkers = workers.map(w => w._id);
-        }
-
         const task = await Task.create(taskData);
-        const populatedTask = await Task.findById(task._id).populate('assignedWorkers', 'name email');
-        createdTasks.push(populatedTask);
+        createdTasks.push(task);
       } catch (error) {
         console.error(`Error processing row ${i + 1}:`, error);
         errors.push(`Row ${i + 1}: ${error.message}`);
@@ -461,11 +460,10 @@ exports.uploadExcel = async (req, res) => {
 // @desc    Get tasks marked for today (Admin only)
 // @route   GET /api/tasks/today
 // @access  Private/Admin
-exports.getTodayTasks = async (req, res) => {
+const getTodayTasks = async (req, res) => {
   try {
     // Get tasks marked for today, handle cases where field might not exist
     const tasks = await Task.find({ isForToday: true })
-      .populate('assignedWorkers', 'name email')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -474,20 +472,21 @@ exports.getTodayTasks = async (req, res) => {
       data: tasks
     });
   } catch (error) {
-    console.error('Error fetching today tasks:', error);
-    res.status(500).json({ message: 'Server error fetching today tasks' });
+    console.error('Error fetching today\'s tasks:', error);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
 // @desc    Get tasks for supervisor to assign (only tasks marked for today)
 // @route   GET /api/tasks/supervisor-today
 // @access  Private/Supervisor
-exports.getSupervisorTodayTasks = async (req, res) => {
+const getSupervisorTodayTasks = async (req, res) => {
   try {
     // Get tasks marked for today for supervisor assignment
     const tasks = await Task.find({ isForToday: true })
-      .populate('assignedWorkers', 'name email')
       .sort({ createdAt: -1 });
+
+    console.log('Supervisor tasks with deadlineDate:', tasks.map(t => ({ id: t._id, deadlineDate: t.deadlineDate })));
 
     res.json({
       success: true,
@@ -503,91 +502,119 @@ exports.getSupervisorTodayTasks = async (req, res) => {
 // @desc    Update which tasks are marked for today (Admin only)
 // @route   PUT /api/tasks/update-today
 // @access  Private/Admin
-exports.updateTodayTasks = async (req, res) => {
+const updateTodayTasks = async (req, res) => {
   try {
-    const { taskIds } = req.body;
+    const { taskIds, date, deadline, supervisorId } = req.body;
+    console.log('updateTodayTasks received:', { taskIds, date, deadline, supervisorId, fullBody: req.body });
     
-    // Validate taskIds parameter
-    if (!taskIds) {
+    // Validate required fields
+    if (!taskIds || !Array.isArray(taskIds)) {
       return res.status(400).json({ 
-        message: 'taskIds is required in request body',
-        received: req.body 
+        success: false,
+        message: 'taskIds is required and must be an array' 
       });
     }
-    
-    if (!Array.isArray(taskIds)) {
-      return res.status(400).json({ 
-        message: 'taskIds must be an array',
-        received: typeof taskIds 
-      });
-    }
-    
-    console.log('Updating today tasks with IDs:', taskIds);
-    
-    // First, remove isForToday flag from all tasks
-    await Task.updateMany({}, { isForToday: false });
-    
-    // Then, set isForToday flag for selected tasks
-    if (taskIds && taskIds.length > 0) {
-      // Convert string IDs to ObjectId for proper MongoDB querying
-      const mongoose = require('mongoose');
-      const objectIds = taskIds.map(id => {
-        if (!mongoose.Types.ObjectId.isValid(id)) {
-          throw new Error(`Invalid ObjectId format: ${id}`);
-        }
-        return new mongoose.Types.ObjectId(id);
-      });
-      
+
+    // Start a session for transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // 1. First, reset all tasks to not be for today
       await Task.updateMany(
-        { _id: { $in: objectIds } },
-        { isForToday: true }
+        {},
+        { $set: { isForToday: false } },
+        { session }
       );
+
+      // 2. Update the selected tasks to be for today
+      if (taskIds.length > 0) {
+        // Ensure supervisorId is a valid ObjectId if provided
+        const updateData = {
+          isForToday: true,
+          ...(date && { startDate: date }),
+          ...(deadline && { deadline })
+        };
+        
+        // Only add supervisor if it's a valid ID
+        if (supervisorId && mongoose.Types.ObjectId.isValid(supervisorId)) {
+          updateData.supervisor = supervisorId;
+        }
+
+        await Task.updateMany(
+          { _id: { $in: taskIds } },
+          { $set: updateData },
+          { session, runValidators: true }
+        );
+      }
+
+      // Commit the transaction
+      await session.commitTransaction();
+      session.endSession();
+
+      // 3. Get the updated list of today's tasks
+      const todayTasks = await Task.find({ _id: { $in: taskIds } })
+        .populate('supervisor', 'name email')
+        .populate('assignedWorkers', 'name email');
+
+      res.json({
+        success: true,
+        message: `Successfully updated ${taskIds.length} tasks for today`,
+        data: todayTasks
+      });
+
+    } catch (error) {
+      // If an error occurred, abort the transaction
+      await session.abortTransaction();
+      session.endSession();
+      throw error; // This will be caught by the outer catch block
     }
 
-    const updatedTasks = await Task.find({ isForToday: true })
-      .populate('assignedWorkers', 'name email');
-
-    res.json({
-      success: true,
-      message: `Updated ${taskIds ? taskIds.length : 0} tasks for today`,
-      data: updatedTasks
-    });
   } catch (error) {
     console.error('Error updating today tasks:', error);
     
-    // Enhanced error handling for validation errors
+    // Handle specific error types
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => ({
         field: err.path,
         message: err.message,
         value: err.value
       }));
-      console.error('Validation errors:', validationErrors);
-      return res.status(400).json({ 
-        message: 'Validation failed', 
-        errors: validationErrors 
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validationErrors
       });
     }
-    
-    // Handle cast errors (e.g., invalid ObjectId)
+
     if (error.name === 'CastError') {
-      console.error('Cast error - invalid ID or data format:', error);
-      return res.status(400).json({ 
-        message: 'Invalid data format', 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid data format',
         field: error.path,
-        value: error.value 
+        value: error.value
       });
     }
-    
-    // Handle custom ObjectId validation errors
-    if (error.message && error.message.includes('Invalid ObjectId format')) {
-      console.error('Invalid ObjectId error:', error);
-      return res.status(400).json({ 
-        message: 'Invalid task ID format', 
-        details: error.message 
-      });
-    }
-    
-    res.status(500).json({ message: 'Server error updating today tasks' });
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating today tasks',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
+};
+
+// Export all functions
+module.exports = {
+  getWorkerTasks,
+  getTasks,
+  createTask,
+  getTaskById,
+  updateTask,
+  deleteTask,
+  getDashboardStats,
+  uploadExcel,
+  getTodayTasks,
+  getSupervisorTodayTasks,
+  updateTodayTasks
 };

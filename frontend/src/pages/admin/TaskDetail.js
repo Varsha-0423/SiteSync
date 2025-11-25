@@ -146,8 +146,23 @@ function TaskDetail() {
   );
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleString();
+    if (!dateString) return null;
+    
+    const options = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    };
+    
+    return new Date(dateString).toLocaleString('en-US', options);
+  };
+  
+  const isDeadlinePassed = (deadline) => {
+    if (!deadline) return false;
+    return new Date(deadline) < new Date();
   };
 
 
@@ -180,6 +195,7 @@ function TaskDetail() {
             {/* Task Status and Basic Info */}
             <div className="detail-section">
               <h3>Task Information</h3>
+              
               <div className="detail-row">
                 <span className="label">Task Status:</span>
                 <span className={`status-${task.status || 'pending'}`}>
@@ -187,28 +203,62 @@ function TaskDetail() {
                 </span>
               </div>
               
-              {/* Original Task Details */}
               <div className="detail-row">
-                <span className="label">Task Title:</span>
-                <span>{task.title || 'Untitled Task'}</span>
+                <span className="label">Task Name:</span>
+                <span>{task.taskName || 'N/A'}</span>
               </div>
+              
               {task.description && (
                 <div className="detail-row">
                   <span className="label">Description:</span>
                   <span>{task.description}</span>
                 </div>
               )}
+              
               <div className="detail-row">
-                <span className="label">Created On:</span>
-                <span>{formatDate(task.createdAt) || 'N/A'}</span>
+                <span className="label">Date:</span>
+                <span>{formatDate(task.date) || 'Not set'}</span>
               </div>
+              
+              <div className="detail-row">
+                <span className="label">Start Date:</span>
+                <span>{formatDate(task.startDate) || 'Not set'}</span>
+              </div>
+              
               <div className="detail-row">
                 <span className="label">Deadline:</span>
-                <span>{formatDate(task.deadline) || 'Not set'}</span>
+                <span style={{ color: isDeadlinePassed(task.deadline) ? '#ff4d4f' : 'inherit' }}>
+                  {formatDate(task.deadline) || 'Not set'}
+                </span>
               </div>
+              
+              <div className="detail-row">
+                <span className="label">Priority:</span>
+                <span className={`priority-${task.priority || 'medium'}`}>
+                  {task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'Medium'}
+                </span>
+              </div>
+              
+              <div className="detail-row">
+                <span className="label">Progress:</span>
+                <span>{task.progress || 0}%</span>
+              </div>
+              
+              <div className="detail-row">
+                <span className="label">Marked for Today:</span>
+                <span>{task.isForToday ? 'Yes' : 'No'}</span>
+              </div>
+              
+              {task.supervisor && (
+                <div className="detail-row">
+                  <span className="label">Supervisor:</span>
+                  <span>{task.supervisor.name || 'Not assigned'}</span>
+                </div>
+              )}
             </div>
-            {/* Supervisor Submission Section */}
-            {workReports.length > 0 ? (
+            
+            {/* Work Reports Section */}
+            {workReports.length > 0 && (
               <div className="submission-section">
                 <h3>Supervisor Submission</h3>
                 <div className="submission-details">
@@ -230,7 +280,6 @@ function TaskDetail() {
                     <span className="value">{formatDate(workReports[0].updatedAt) || 'N/A'}</span>
                   </div>
                   
-                  {/* Work Details */}
                   {workReports[0].updateText && (
                     <div className="work-update">
                       <div className="label">Work Update:</div>
@@ -238,7 +287,6 @@ function TaskDetail() {
                     </div>
                   )}
                   
-                  {/* Quantity and Unit */}
                   {(workReports[0].quantity || workReports[0].unit) && (
                     <div className="work-metrics">
                       <div className="detail-row">
@@ -250,7 +298,6 @@ function TaskDetail() {
                     </div>
                   )}
                   
-                  {/* Submitted Photos */}
                   {workReports[0].photoUrls?.length > 0 && (
                     <div className="submission-photos">
                       <div className="label">Submitted Photos:</div>
@@ -272,26 +319,8 @@ function TaskDetail() {
                   )}
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="detail-row">
-                  <span className="label">Description:</span>
-                  <span>{task.description || 'No description provided'}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="label">Start Date:</span>
-                  <span>{formatDate(task.startDate) || 'Not set'}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="label">Deadline:</span>
-                  <span>{formatDate(task.deadline) || 'Not set'}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="label">Supervisor:</span>
-                  <span>{task.supervisor?.name || 'Not assigned'}</span>
-                </div>
-              </>
             )}
+            
             {task.assignedWorkers?.length > 0 && (
               <div className="assigned-workers">
                 <h4>Assigned Workers:</h4>
