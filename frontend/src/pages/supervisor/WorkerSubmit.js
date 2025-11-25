@@ -1,35 +1,47 @@
 import { useState, useEffect } from "react";
 import api from "../../api";
 
-function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted }) {
+function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = false }) {
   const [formData, setFormData] = useState({
     worker: "",
-    status: "completed",
+    status: isSupervisor ? "completed" : "in-progress",
     quantity: "",
     unit: "",
     description: "",
+    deadline: "",
     attachments: []
   });
   const [workers, setWorkers] = useState([]);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch workers list
+  // Fetch workers list if not a supervisor
   useEffect(() => {
-    const fetchWorkers = async () => {
+    const fetchData = async () => {
       try {
-        const response = await api.get("/users?role=worker");
-        setWorkers(response.data.data || []);
+        if (!isSupervisor) {
+          const response = await api.get("/users?role=worker");
+          setWorkers(response.data.data || []);
+        } else {
+          // For supervisor, set the current user as the worker
+          const user = JSON.parse(localStorage.getItem('user') || '{}');
+          if (user && user._id) {
+            setFormData(prev => ({
+              ...prev,
+              worker: user._id
+            }));
+          }
+        }
       } catch (error) {
-        console.error("Error fetching workers:", error);
-        setMessage("Failed to load workers");
+        console.error("Error fetching data:", error);
+        setMessage({ type: 'error', text: "Failed to load required data" });
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchWorkers();
-  }, []);
+    fetchData();
+  }, [isSupervisor]);
 
   const units = [
     { value: "kg", label: "Kilograms (kg)" },
@@ -62,7 +74,7 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.worker) {
+    if (!isSupervisor && !formData.worker) {
       setMessage({ type: 'error', text: "Please select a worker" });
       return;
     }
@@ -139,22 +151,43 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted }) {
         photoUrls: photoUrls, // New field for multiple images
         quantity: formData.quantity,
         unit: formData.unit,
-        worker: formData.worker
+        worker: formData.worker,
+        deadline: formData.deadline ? new Date(formData.deadline).toISOString() : ''
       };
       
-      // Submit work report
-      const response = await api.post('/work/submit', workData);
-      
-      setMessage({ 
-        type: 'success', 
-        text: "Work submitted successfully!" 
-      });
-      
-      // Update task status in parent component
-      if (onWorkSubmitted && response.data && response.data.task) {
-        onWorkSubmitted(response.data.task._id, formData.status);
-      } else if (onWorkSubmitted) {
-        onWorkSubmitted(taskId, formData.status);
+      try {
+        // Submit work report
+        const response = await api.post('/work/submit', workData);
+        
+        // If supervisor is submitting, update task status to completed
+        if (isSupervisor) {
+          try {
+            await api.put(`/tasks/${taskId}`, {
+              status: 'completed',
+              lastUpdated: new Date().toISOString()
+            });
+          } catch (updateError) {
+            console.error('Error updating task status:', updateError);
+            // Don't fail the whole submission if status update fails
+          }
+        }
+        
+        setMessage({ 
+          type: 'success', 
+          text: isSupervisor 
+            ? "Work submitted and task marked as completed!" 
+            : "Work submitted successfully!"
+        });
+        
+        // Update task status in parent component
+        if (onWorkSubmitted && response.data && response.data.task) {
+          onWorkSubmitted(response.data.task._id, 'completed');
+        } else if (onWorkSubmitted) {
+          onWorkSubmitted(taskId, 'completed');
+        }
+      } catch (submitError) {
+        console.error('Error submitting work:', submitError);
+        throw submitError; // Re-throw to be caught by outer catch
       }
       
       // Close the popup after 2 seconds

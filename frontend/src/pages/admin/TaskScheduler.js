@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../../api";
 
 function TaskScheduler() {
@@ -9,11 +10,15 @@ function TaskScheduler() {
   const [message, setMessage] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState('');
+  const [deadlineDate, setDeadlineDate] = useState('');
   const [supervisors, setSupervisors] = useState([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState('');
   const [dateError, setDateError] = useState('');
+  const [deadlineError, setDeadlineError] = useState('');
   const [supervisorError, setSupervisorError] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [tasksError, setTasksError] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchAllTasks();
@@ -40,6 +45,13 @@ function TaskScheduler() {
       console.error('Error fetching today\'s tasks:', error);
     }
   };
+  // Filter tasks based on selected status
+  const filteredTasks = React.useMemo(() => {
+    if (!allTasks || !Array.isArray(allTasks)) return [];
+    return statusFilter === 'all' 
+      ? [...allTasks] 
+      : allTasks.filter(task => task.status === statusFilter);
+  }, [allTasks, statusFilter]);
 
   const fetchSupervisors = async () => {
     try {
@@ -70,11 +82,19 @@ function TaskScheduler() {
   const handleScheduleConfirm = async () => {
     let valid = true;
     setDateError('');
+    setDeadlineError('');
     setSupervisorError('');
     setTasksError('');
 
     if (!selectedDate) {
-      setDateError('Date is required');
+      setDateError('Start date is required');
+      valid = false;
+    }
+    if (!deadlineDate) {
+      setDeadlineError('Deadline is required');
+      valid = false;
+    } else if (new Date(deadlineDate) <= new Date(selectedDate)) {
+      setDeadlineError('Deadline must be after start date');
       valid = false;
     }
     if (!selectedSupervisor) {
@@ -92,6 +112,7 @@ function TaskScheduler() {
       await api.put('/tasks/update-today', {
         taskIds: selectedTaskIds,
         date: selectedDate,
+        deadline: deadlineDate,
         supervisorId: selectedSupervisor
       });
       await fetchTodayTasks();
@@ -168,14 +189,45 @@ function TaskScheduler() {
           </div>
         )}
       </div>
+{/* ✔️ FILTER BUTTON + TITLE */}
+      <div style={{
+        marginBottom: '20px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center'
+      }}>
+        <h3>All Available Tasks ({filteredTasks.length})</h3>
 
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{
+            padding: '6px 10px',
+            borderRadius: '4px',
+            border: '1px solid #ccc',
+            cursor: 'pointer'
+          }}
+        >
+          <option value="all">All</option>
+          <option value="pending">Pending</option>
+          <option value="on-schedule">On-Schedule</option>
+          <option value="behind">Behind</option>
+          <option value="ahead">Ahead</option>
+          <option value="completed">Completed</option>
+        </select>
+      </div>
       <div style={{ marginBottom: '20px' }}>
-        <h3>All Available Tasks ({allTasks.length})</h3>
-        {allTasks.length === 0 ? (
-          <p style={{ color: '#666', fontStyle: 'italic' }}>No tasks available. Upload tasks first.</p>
+        {loading ? (
+          <p style={{ color: '#666', fontStyle: 'italic' }}>Loading tasks...</p>
+        ) : filteredTasks.length === 0 ? (
+          <p style={{ color: '#666', fontStyle: 'italic' }}>
+            {statusFilter === 'all' 
+              ? 'No tasks available. Upload tasks first.' 
+              : `No ${statusFilter} tasks found.`}
+          </p>
         ) : (
           <div style={{ display: 'grid', gap: '15px' }}>
-            {allTasks.map((task) => (
+            {filteredTasks.map((task) => (
               <div 
                 key={task._id} 
                 style={{ 
@@ -237,6 +289,33 @@ function TaskScheduler() {
                       {task.status.toUpperCase()}
                     </span>
                   </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/tasks/${task._id}`);
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: '#f8f9fa',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      color: '#333',
+                      marginLeft: 'auto'
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    View Details
+                  </button>
                 </div>
               </div>
             ))}
@@ -313,19 +392,22 @@ function TaskScheduler() {
             </span>
             <h3 style={{ marginTop: 0 }}>Schedule Tasks</h3>
             <p>Select a date and supervisor for the tasks:</p>
-            {/* Date and Supervisor selection in a row */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '15px', gap: '20px' }}>
-              <div style={{ flex: 1 }}>
+            {/* Date, Deadline and Supervisor selection in a row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
                 <label>
-                  Date:&nbsp;
+                  Start Date:&nbsp;
                   <input
                     type="date"
                     value={selectedDate}
                     onChange={e => setSelectedDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
                     style={{
                       padding: '6px',
                       borderRadius: '4px',
-                      border: dateError ? '2px solid red' : '1px solid #ccc'
+                      border: dateError ? '2px solid red' : '1px solid #ccc',
+                      width: '100%',
+                      boxSizing: 'border-box'
                     }}
                   />
                 </label>
@@ -333,7 +415,30 @@ function TaskScheduler() {
                   <div style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{dateError}</div>
                 )}
               </div>
-              <div style={{ flex: 1 }}>
+              <div>
+                <label>
+                  Deadline:&nbsp;
+                  <input
+                    type="date"
+                    value={deadlineDate}
+                    onChange={e => setDeadlineDate(e.target.value)}
+                    min={selectedDate || new Date().toISOString().split('T')[0]}
+                    style={{
+                      padding: '6px',
+                      borderRadius: '4px',
+                      border: deadlineError ? '2px solid red' : '1px solid #ccc',
+                      width: '100%',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </label>
+                {deadlineError && (
+                  <div style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{deadlineError}</div>
+                )}
+              </div>
+            </div>
+            <div style={{ marginBottom: '15px' }}>
+              <div>
                 <label style={{ marginLeft: 'auto' }}>
                   Supervisor:&nbsp;
                   <select
@@ -358,10 +463,8 @@ function TaskScheduler() {
               </div>
             </div>
             {/* Task selection list */}
-            <div style={{ marginBottom: '15px' }}>
-              <h4 style={{ marginBottom: '10px' }}>
-                Select Tasks to Schedule
-              </h4>
+            <div style={{ marginTop: '20px' }}>
+              <h4 style={{ marginBottom: '10px' }}>Select Tasks to Schedule</h4>
               <div style={{
                 maxHeight: '200px',
                 overflowY: 'auto',
@@ -370,10 +473,10 @@ function TaskScheduler() {
                 padding: '10px',
                 background: '#fafafa'
               }}>
-                {allTasks.length === 0 ? (
-                  <p style={{ color: '#666', fontStyle: 'italic' }}>No tasks available.</p>
+                {allTasks.filter(task => selectedTaskIds.includes(task._id)).length === 0 ? (
+                  <p style={{ color: '#666', fontStyle: 'italic' }}>No tasks selected. Please select tasks from the list above.</p>
                 ) : (
-                  allTasks.map(task => (
+                  allTasks.filter(task => selectedTaskIds.includes(task._id)).map(task => (
                     <div key={task._id} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
                       <input
                         type="checkbox"

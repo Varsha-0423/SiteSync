@@ -10,6 +10,12 @@ const taskSchema = new mongoose.Schema({
   assignedWorkers: [
     { type: mongoose.Schema.Types.ObjectId, ref: "User" }
   ],
+  
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
 
   priority: {
     type: String,

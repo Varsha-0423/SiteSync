@@ -13,6 +13,7 @@ import TaskScheduler from "./pages/admin/TaskScheduler";
 import SupervisorDashboard from "./pages/supervisor/SupervisorDashboard";
 import SupervisorLayout from "./pages/supervisor/SupervisorLayout";
 import SupervisorTaskAssignment from "./pages/supervisor/SupervisorTaskAssignment";
+import TaskDetail from "./pages/admin/TaskDetail";
 // import SubmitWork from "./pages/supervisor/tasks/SubmitWork";
 
 function App() {
@@ -91,9 +92,20 @@ function AppContent() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<SupervisorDashboard />} />
             <Route path="assign-tasks" element={<SupervisorTaskAssignment />} />
+            <Route path="tasks/:taskId" element={<TaskDetail />} />
             {/* <Route path="submit-work" element={<SubmitWork />} /> */}
             <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Route>
+          
+          {/* Task detail route accessible only to admins */}
+          <Route 
+            path="/tasks/:taskId" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <TaskDetail />
+              </ProtectedRoute>
+            } 
+          />
           
           {/* Admin routes */}
           <Route 

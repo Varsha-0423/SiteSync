@@ -2,16 +2,19 @@ const express = require('express');
 const router = express.Router();
 const { 
   submitWork, 
-  getMyReports, 
   getAllReports 
 } = require('../controllers/workController');
-const { protect, admin, supervisor, adminOrSupervisor } = require('../middleware/authMiddleware');
 
-// Worker routes - using adminOrSupervisor as a temporary measure
-router.post('/submit', protect, adminOrSupervisor, submitWork);
-router.get('/my-reports', protect, adminOrSupervisor, getMyReports);
+const { protect, supervisor, adminOrSupervisor } = require('../middleware/authMiddleware');
+const { getReportsByTask } = require('../controllers/workController');
 
-// Admin/Supervisor routes
+// Admin/Supervisor: get work reports for a task
+router.get('/task/:taskId', protect, adminOrSupervisor, getReportsByTask);
+
+// Supervisor submits work for workers
+router.post('/submit', protect, supervisor, submitWork);
+
+// Admin + Supervisor view all reports
 router.get('/all-reports', protect, adminOrSupervisor, getAllReports);
 
 module.exports = router;

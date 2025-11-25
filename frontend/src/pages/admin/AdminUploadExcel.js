@@ -26,7 +26,17 @@ function AdminUploadExcel() {
     formData.append("file", file);
 
     try {
-      const endpoint = "/users/bulk-upload";
+      let endpoint, successMessage, errorMessage;
+      
+      if (activeTab === 'workers') {
+        endpoint = "/users/bulk-upload";
+        successMessage = 'Workers uploaded successfully';
+        errorMessage = 'Failed to upload workers';
+      } else {
+        endpoint = "/api/tasks/upload-excel";
+        successMessage = 'Tasks uploaded successfully';
+        errorMessage = 'Failed to upload tasks';
+      }
       
       const response = await api.post(endpoint, formData, {
         headers: { 
@@ -35,24 +45,38 @@ function AdminUploadExcel() {
         }
       });
       
-      setMessage(response.data.message || 'Bulk upload completed');
-      
-      if (response.data.results) {
-        const { success, total, errors } = response.data.results;
+      if (response.data.success) {
+        setMessage(successMessage);
+        antMessage.success(successMessage);
         
-        if (success > 0) {
-          antMessage.success(`Successfully uploaded ${success} out of ${total} workers`);
+        // Set uploaded data for display
+        if (activeTab === 'workers') {
+          setUploadedData(response.data.data || []);
+        } else {
+          // For tasks, we might get an array of created tasks
+          setUploadedData(response.data.data || []);
         }
         
-        if (errors && errors.length > 0) {
-          const errorMessages = errors.map(e => `Row ${e.row}: ${e.message}`).join('\n');
-          antMessage.warning(`${errors.length} rows had issues. See details in the message below.`);
-          setMessage(prev => `${prev}\n\nErrors:\n${errorMessages}`);
+        // Show success message with count
+        const count = response.data.data?.length || 0;
+        if (count > 0) {
+          antMessage.success(`Successfully uploaded ${count} ${activeTab}`);
         }
+        
+        // Handle any errors from the response
+        if (response.data.errors && response.data.errors.length > 0) {
+          const errorMessages = response.data.errors.join('\n');
+          antMessage.warning(`Some rows had issues. See details in the message below.`);
+          setMessage(prev => `${prev ? prev + '\n\n' : ''}Errors:\n${errorMessages}`);
+        }
+      } else {
+        throw new Error(response.data.message || errorMessage);
       }
     } catch (err) {
       console.error('Upload error:', err);
-      const errorMsg = err.response?.data?.message || "Upload failed. Please check the file format and try again.";
+      const errorMsg = err.response?.data?.message || 
+                     err.message || 
+                     `Failed to upload ${activeTab}. Please check the file format and try again.`;
       setMessage(errorMsg);
       antMessage.error(errorMsg);
       setUploadedData([]);

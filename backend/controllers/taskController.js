@@ -181,6 +181,7 @@ exports.getTasks = async (req, res) => {
 
     const tasks = await Task.find(filter)
       .populate('assignedWorkers', 'name email')
+      .populate('assignedBy', 'name email')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -206,13 +207,15 @@ exports.createTask = async (req, res) => {
       description,
       date,
       assignedWorkers,
+      assignedBy: req.user.id, // Add the admin's ID who is assigning the task
       priority: priority || 'medium',
       status: status || 'pending',
       isForToday: isForToday || false
     });
 
     const populatedTask = await Task.findById(task._id)
-      .populate('assignedWorkers', 'name email');
+      .populate('assignedWorkers', 'name email')
+      .populate('assignedBy', 'name email');
 
     res.status(201).json({
       success: true,
@@ -230,7 +233,8 @@ exports.createTask = async (req, res) => {
 exports.getTaskById = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id)
-      .populate('assignedWorkers', 'name email');
+      .populate('assignedWorkers', 'name email')
+      .populate('assignedBy', 'name email');
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
