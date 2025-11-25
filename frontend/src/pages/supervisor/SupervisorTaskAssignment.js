@@ -32,27 +32,70 @@ function SupervisorTaskAssignment() {
 
   const fetchWorkers = async () => {
     try {
+      console.log('Fetching workers...');
       const response = await api.get("/users?role=worker");
       const workersData = response.data.data || [];
-      console.log('Fetched workers:', workersData);
+      
+      if (workersData.length === 0) {
+        console.warn('No workers found in the system');
+      } else {
+        console.log(`Fetched ${workersData.length} workers:`, workersData.map(w => ({
+          _id: w._id,
+          name: w.name,
+          email: w.email
+        })));
+      }
+      
       setWorkers(workersData);
+      return workersData;
     } catch (error) {
       console.error("Error fetching workers:", error);
+      setMessage('Error loading workers. Please refresh the page to try again.');
+      return [];
     }
   };
 
   const handleAssignmentChange = async (taskId, workerIds) => {
     try {
       setLoading(true);
-      console.log('Raw workerIds:', workerIds); // Debug log
+      console.log('=== handleAssignmentChange ===');
+      console.log('Task ID:', taskId);
+      console.log('Raw workerIds:', workerIds);
+      console.log('Available workers:', workers);
 
-      // Ensure workerIds is an array and filter out any invalid IDs
-      const validWorkerIds = Array.isArray(workerIds)
-  ? workerIds.filter(id => !!id)
-  : [];
+      // Ensure workerIds is an array and filter out any invalid/empty IDs
+      const validWorkerIds = Array.isArray(workerIds) 
+        ? workerIds.filter(id => {
+            console.log('Processing worker ID:', id, 'Type:', typeof id);
+            if (!id || typeof id !== 'string' || id.trim() === '') {
+              console.log('Invalid ID format:', id);
+              return false;
+            }
+            
+            // Check if this ID exists in our workers list
+            const worker = workers.find(w => w._id === id);
+            const exists = !!worker;
+            
+            if (!exists) {
+              console.warn(`Worker ID ${id} not found in workers list. Available worker IDs:`, 
+                workers.map(w => w._id));
+            } else {
+              console.log(`Found worker: ${worker.name} (${worker._id})`);
+            }
+            
+            return exists;
+          })
+        : [];
 
-
-      console.log('Valid worker IDs:', validWorkerIds); // Debug log
+      console.log('Valid worker IDs after filtering:', validWorkerIds);
+      
+      // Log the task being updated
+      const currentTask = tasks.find(t => t._id === taskId);
+      console.log('Current task state:', {
+        taskId,
+        currentAssignedWorkers: currentTask?.assignedWorkers || [],
+        currentTaskName: currentTask?.taskName
+      });
 
       // If no valid workers, clear the assignment
       if (validWorkerIds.length === 0) {
@@ -61,16 +104,22 @@ function SupervisorTaskAssignment() {
         });
         
         if (response.data.success) {
-          setTasks(prevTasks =>
-            prevTasks.map(task =>
-              task._id === taskId
-                ? { ...task, assignedWorkers: [] }
-                : task
-            )
-          );
+          await fetchTodayTasks(); // Refresh the tasks to ensure UI is in sync
           setMessage('Workers unassigned successfully');
           setTimeout(() => setMessage(''), 3000);
         }
+        return;
+      }
+
+      // Verify all worker IDs exist in the workers list
+      const invalidWorkerIds = validWorkerIds.filter(
+        workerId => !workers.some(worker => worker._id === workerId)
+      );
+
+      if (invalidWorkerIds.length > 0) {
+        console.error('Invalid worker IDs found:', invalidWorkerIds);
+        setMessage(`Error: Invalid worker IDs: ${invalidWorkerIds.join(', ')}`);
+        setTimeout(() => setMessage(''), 5000);
         return;
       }
 
@@ -94,29 +143,29 @@ function SupervisorTaskAssignment() {
       });
 
       if (response.data.success) {
-        // Get the full worker objects for the assigned workers
-        const updatedAssignedWorkers = validWorkerIds.map(id => 
-  workers.find(w => w._id === id)
-).filter(Boolean);
-
-
-        // Update the UI with the new worker assignments
-        setTasks(prevTasks =>
-          prevTasks.map(task =>
-            task._id === taskId
-              ? { 
-                  ...task, 
-                  assignedWorkers: updatedAssignedWorkers
-                }
-              : task
-          )
-        );
+        // Get the updated task data
+        const updatedTask = response.data.data;
         
-        if (response.data.success) {
-  await fetchTodayTasks();
-  setMessage('Workers assigned successfully');
-  setTimeout(() => setMessage(''), 3000);
-}
+        // If the backend returns the full task with populated workers
+        if (updatedTask) {
+          // Update the tasks list with the updated task
+          setTasks(prevTasks => 
+            prevTasks.map(task => 
+              task._id === updatedTask._id 
+                ? { 
+                    ...task, 
+                    assignedWorkers: updatedTask.assignedWorkers || [] 
+                  } 
+                : task
+            )
+          );
+        } else {
+          // If the backend doesn't return the full task, fetch the updated task
+          await fetchTodayTasks();
+        }
+        
+        setMessage('Workers assigned successfully');
+        setTimeout(() => setMessage(''), 3000);
       }
     } catch (error) {
       console.error('Error assigning workers:', error);
