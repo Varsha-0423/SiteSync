@@ -33,7 +33,7 @@ function AdminUploadExcel() {
         successMessage = 'Workers uploaded successfully';
         errorMessage = 'Failed to upload workers';
       } else {
-        endpoint = "/api/tasks/upload-excel";
+        endpoint = "/tasks/upload-excel";
         successMessage = 'Tasks uploaded successfully';
         errorMessage = 'Failed to upload tasks';
       }

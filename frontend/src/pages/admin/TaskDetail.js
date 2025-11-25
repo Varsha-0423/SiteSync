@@ -24,14 +24,14 @@ function TaskDetail() {
         setError('');
         
         // Fetch task details
-        const taskRes = await api.get(`/api/tasks/${taskId}`);
+        const taskRes = await api.get(`/tasks/${taskId}`);
         
         if (taskRes.data && taskRes.data.success) {
           setTask(taskRes.data.data);
           
           // Fetch work reports
           try {
-            const reportsRes = await api.get(`/api/work/task/${taskId}`);
+            const reportsRes = await api.get(`/work/task/${taskId}`);
             if (reportsRes.data && reportsRes.data.success) {
               const reports = Array.isArray(reportsRes.data.data) ? reportsRes.data.data : [];
               // Process reports to ensure they have the expected structure

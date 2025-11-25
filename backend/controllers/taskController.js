@@ -417,7 +417,8 @@ exports.uploadExcel = async (req, res) => {
           date: row['Date'] || row['date'] || new Date(),
           priority: row['Priority'] || row['priority'] || 'medium',
           status: row['Status'] || row['status'] || 'pending',
-          assignedWorkers: []
+          assignedWorkers: [],
+          assignedBy: req.user.id
         };
 
         // Handle assigned workers if present
