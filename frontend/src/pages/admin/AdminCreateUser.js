@@ -13,7 +13,7 @@ function AdminCreateUser() {
     name: "",
     email: "",
     password: "",
-    role: "worker"
+    role: "supervisor"
   });
   
   // Users list states
@@ -189,13 +189,12 @@ function AdminCreateUser() {
                 onChange={handleInputChange}
               />
               <Select
-                style={{ width: '100%' }}
+                placeholder="Select role"
                 value={formData.role}
-                onChange={handleRoleChange}
+                onChange={(value) => setFormData({ ...formData, role: value })}
               >
                 <Option value="admin">Admin</Option>
                 <Option value="supervisor">Supervisor</Option>
-                <Option value="worker">Worker</Option>
               </Select>
               <Button 
                 type="primary" 
@@ -216,15 +215,16 @@ function AdminCreateUser() {
                 <Space>
                   <Select
                     placeholder="Filter by role"
-                    style={{ width: 120 }}
+                    style={{ width: 180, marginRight: 8 }}
                     value={roleFilter}
-                    onChange={handleRoleFilter}
-                    allowClear
+                    onChange={value => {
+                      setRoleFilter(value);
+                      setPagination({ ...pagination, current: 1 });
+                    }}
                   >
                     <Option value="all">All Roles</Option>
                     <Option value="admin">Admin</Option>
                     <Option value="supervisor">Supervisor</Option>
-                    <Option value="worker">Worker</Option>
                   </Select>
                   <Input
                     placeholder="Search users..."

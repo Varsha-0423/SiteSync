@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, admin } = require('../middleware/authMiddleware');
+const { protect, admin, supervisor } = require('../middleware/authMiddleware');
 const {
   createUser,
   getUsers,
@@ -8,12 +8,28 @@ const {
   updateUser,
   deleteUser
 } = require('../controllers/userController');
+const { upload, processBulkUpload } = require('../controllers/bulkUserController');
 
-// Admin routes
+// Admin and supervisor routes for getting users
 router.route('/')
-  .get(protect, admin, getUsers)
+  .get(protect, (req, res, next) => {
+    // Allow both admins and supervisors to get users, but with different filters
+    if (req.user.role === 'admin' || req.user.role === 'supervisor') {
+      return getUsers(req, res, next);
+    }
+    return res.status(403).json({ message: 'Not authorized' });
+  })
   .post(protect, admin, createUser);
 
+// Bulk upload users via Excel
+router.post('/bulk-upload', 
+  protect, 
+  admin, 
+  upload.single('file'), 
+  processBulkUpload
+);
+
+// Single user operations
 router.route('/:id')
   .get(protect, admin, getUserById)
   .put(protect, admin, updateUser)

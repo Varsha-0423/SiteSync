@@ -1,137 +1,245 @@
 import React, { useState } from "react";
+import { Tabs, Button, message as antMessage } from 'antd';
+import { UploadOutlined, UserOutlined, FileDoneOutlined } from '@ant-design/icons';
 import api from "../../api";
 
+const { TabPane } = Tabs;
+
 function AdminUploadExcel() {
+  const [activeTab, setActiveTab] = useState('workers');
   const [file, setFile] = useState(null);
   const [message, setMessage] = useState("");
-  const [uploadedTasks, setUploadedTasks] = useState([]);
+  const [uploadedData, setUploadedData] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const uploadExcel = async () => {
+  const uploadFile = async () => {
     if (!file) {
-      setMessage("Please select a file first");
+      antMessage.warning("Please select a file first");
       return;
     }
 
     setLoading(true);
     setMessage("");
-    setUploadedTasks([]);
+    setUploadedData([]);
 
     const formData = new FormData();
     formData.append("file", file);
 
     try {
-      const response = await api.post("/tasks/upload-excel", formData, {
-        headers: { "Content-Type": "multipart/form-data" }
+      let endpoint, successMessage, errorMessage;
+      
+      if (activeTab === 'workers') {
+        endpoint = "/users/bulk-upload";
+        successMessage = 'Workers uploaded successfully';
+        errorMessage = 'Failed to upload workers';
+      } else {
+        endpoint = "/tasks/upload-excel";
+        successMessage = 'Tasks uploaded successfully';
+        errorMessage = 'Failed to upload tasks';
+      }
+      
+      const response = await api.post(endpoint, formData, {
+        headers: { 
+          "Content-Type": "multipart/form-data",
+          "Authorization": `Bearer ${localStorage.getItem('token')}`
+        }
       });
       
-      setMessage(response.data.message);
-      setUploadedTasks(response.data.data || []);
-      
-      if (response.data.errors && response.data.errors.length > 0) {
-        setMessage(prev => prev + ". Some rows had errors: " + response.data.errors.join(", "));
+      if (response.data.success) {
+        setMessage(successMessage);
+        antMessage.success(successMessage);
+        
+        // Set uploaded data for display
+        if (activeTab === 'workers') {
+          setUploadedData(response.data.data || []);
+        } else {
+          // For tasks, we might get an array of created tasks
+          setUploadedData(response.data.data || []);
+        }
+        
+        // Show success message with count
+        const count = response.data.data?.length || 0;
+        if (count > 0) {
+          antMessage.success(`Successfully uploaded ${count} ${activeTab}`);
+        }
+        
+        // Handle any errors from the response
+        if (response.data.errors && response.data.errors.length > 0) {
+          const errorMessages = response.data.errors.join('\n');
+          antMessage.warning(`Some rows had issues. See details in the message below.`);
+          setMessage(prev => `${prev ? prev + '\n\n' : ''}Errors:\n${errorMessages}`);
+        }
+      } else {
+        throw new Error(response.data.message || errorMessage);
       }
     } catch (err) {
-      console.log(err);
-      setMessage(err.response?.data?.message || "Upload failed");
-      setUploadedTasks([]);
+      console.error('Upload error:', err);
+      const errorMsg = err.response?.data?.message || 
+                     err.message || 
+                     `Failed to upload ${activeTab}. Please check the file format and try again.`;
+      setMessage(errorMsg);
+      antMessage.error(errorMsg);
+      setUploadedData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div style={{ padding: '20px' }}>
-      <h2>Admin: Upload Excel</h2>
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
+    setMessage("");
+    setUploadedData([]);
+  };
 
-      <div style={{ marginBottom: '20px' }}>
+  const renderWorkersTable = () => (
+    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+      <thead>
+        <tr style={{ backgroundColor: '#f8f9fa' }}>
+          <th style={tableHeaderStyle}>Name</th>
+          <th style={tableHeaderStyle}>Worker ID</th>
+          <th style={tableHeaderStyle}>Email</th>
+          <th style={tableHeaderStyle}>Role</th>
+          <th style={tableHeaderStyle}>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {uploadedData.map((user, index) => (
+          <tr key={user._id || index}>
+            <td style={tableCellStyle}>{user.name}</td>
+            <td style={tableCellStyle}>{user.workerId || '-'}</td>
+            <td style={tableCellStyle}>{user.email}</td>
+            <td style={tableCellStyle}>{user.role || 'worker'}</td>
+            <td style={{...tableCellStyle, color: user.error ? '#ff4d4f' : '#52c41a'}}>
+              {user.error ? 'Error' : 'Success'}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  const renderTasksTable = () => (
+    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+      <thead>
+        <tr style={{ backgroundColor: '#f8f9fa' }}>
+          <th style={tableHeaderStyle}>Task Name</th>
+          <th style={tableHeaderStyle}>Description</th>
+          <th style={tableHeaderStyle}>Due Date</th>
+          <th style={tableHeaderStyle}>Priority</th>
+          <th style={tableHeaderStyle}>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {uploadedData.map((task, index) => (
+          <tr key={task._id || index}>
+            <td style={tableCellStyle}>{task.taskName}</td>
+            <td style={tableCellStyle}>{task.description || '-'}</td>
+            <td style={tableCellStyle}>
+              {task.date ? new Date(task.date).toLocaleDateString() : '-'}
+            </td>
+            <td style={tableCellStyle}>{task.priority || 'medium'}</td>
+            <td style={tableCellStyle}>{task.status || 'pending'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
+  const tableHeaderStyle = {
+    border: '1px solid #ddd',
+    padding: '12px',
+    textAlign: 'left',
+    backgroundColor: '#f0f2f5',
+    fontWeight: '600'
+  };
+
+  const tableCellStyle = {
+    border: '1px solid #ddd',
+    padding: '10px',
+    verticalAlign: 'top'
+  };
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      <h2>Admin: Upload Data</h2>
+      
+      <Tabs 
+        activeKey={activeTab} 
+        onChange={setActiveTab}
+        style={{ marginBottom: '24px' }}
+      >
+        <TabPane
+          tab={
+            <span>
+              <UserOutlined />
+              Workers
+            </span>
+          }
+          key="workers"
+        >
+          <div style={{ margin: '20px 0' }}>
+            <p>Upload an Excel file with worker details. Required columns:</p>
+            <ul>
+              <li><strong>name</strong> - Full name of the worker</li>
+              <li><strong>workerId</strong> - Unique ID for the worker</li>
+              <li><strong>email</strong> - Valid email address</li>
+              <li><strong>role</strong> - worker or supervisor</li>
+            </ul>
+            <p style={{ marginTop: '10px' }}>
+              <strong>Note:</strong> All workers will be created with a default password that they can reset later.
+            </p>
+          </div>
+        </TabPane>
+        <TabPane
+          tab={
+            <span>
+              <FileDoneOutlined />
+              Tasks
+            </span>
+          }
+          key="tasks"
+        >
+          <div style={{ margin: '20px 0' }}>
+            <p>Upload an Excel file with task details. Required columns: taskName, description, date, priority</p>
+          </div>
+        </TabPane>
+      </Tabs>
+
+      <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
         <input
           type="file"
-          onChange={(e) => setFile(e.target.files[0])}
+          onChange={handleFileChange}
           accept=".xlsx,.xls"
+          style={{ padding: '8px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
         />
-        <button 
-          onClick={uploadExcel}
-          disabled={loading || !file}
-          style={{ 
-            marginLeft: '10px', 
-            padding: '8px 16px',
-            backgroundColor: loading ? '#ccc' : '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer'
-          }}
+        <Button
+          type="primary"
+          icon={<UploadOutlined />}
+          onClick={uploadFile}
+          loading={loading}
+          disabled={!file}
         >
-          {loading ? 'Uploading...' : 'Upload'}
-        </button>
+          {`Upload ${activeTab === 'workers' ? 'Workers' : 'Tasks'}`}
+        </Button>
       </div>
 
       {message && (
-        <div style={{ 
-          marginBottom: '20px', 
-          padding: '10px',
-          backgroundColor: message.includes('failed') || message.includes('error') ? '#f8d7da' : '#d4edda',
-          color: message.includes('failed') || message.includes('error') ? '#721c24' : '#155724',
-          borderRadius: '4px'
+        <div style={{
+          margin: '20px 0',
+          padding: '12px',
+          backgroundColor: message.toLowerCase().includes('fail') ? '#fff2f0' : '#f6ffed',
+          border: `1px solid ${message.toLowerCase().includes('fail') ? '#ffccc7' : '#b7eb8f'}`,
+          borderRadius: '4px',
+          color: message.toLowerCase().includes('fail') ? '#ff4d4f' : '#52c41a'
         }}>
           {message}
         </div>
       )}
 
-      {uploadedTasks.length > 0 && (
-        <div>
-          <h3>Uploaded Tasks ({uploadedTasks.length})</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f8f9fa' }}>
-                <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Task Name</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Description</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Date</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Priority</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Status</th>
-                <th style={{ border: '1px solid #ddd', padding: '8px', textAlign: 'left' }}>Assigned Workers</th>
-              </tr>
-            </thead>
-            <tbody>
-              {uploadedTasks.map((task, index) => (
-                <tr key={task._id || index}>
-                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{task.taskName}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>{task.description || '-'}</td>
-                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-                    {new Date(task.date).toLocaleDateString()}
-                  </td>
-                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      backgroundColor: task.priority === 'high' ? '#dc3545' : task.priority === 'medium' ? '#ffc107' : '#28a745',
-                      color: 'white'
-                    }}>
-                      {task.priority}
-                    </span>
-                  </td>
-                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      backgroundColor: task.status === 'pending' ? '#6c757d' : task.status === 'on-schedule' ? '#28a745' : task.status === 'behind' ? '#dc3545' : '#17a2b8',
-                      color: 'white'
-                    }}>
-                      {task.status}
-                    </span>
-                  </td>
-                  <td style={{ border: '1px solid #ddd', padding: '8px' }}>
-                    {task.assignedWorkers && task.assignedWorkers.length > 0 
-                      ? task.assignedWorkers.map(w => w.name).join(', ') 
-                      : '-'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {uploadedData.length > 0 && (
+        <div style={{ marginTop: '24px', overflowX: 'auto' }}>
+          <h3>Uploaded {activeTab === 'workers' ? 'Workers' : 'Tasks'} ({uploadedData.length})</h3>
+          {activeTab === 'workers' ? renderWorkersTable() : renderTasksTable()}
         </div>
       )}
     </div>

@@ -23,7 +23,7 @@ exports.createUser = async (req, res) => {
       name,
       email,
       password: hashedPassword,
-      role: role || 'worker' // Default to 'worker' if role not provided
+      role: role || 'supervisor' // Default to 'supervisor' if role not provided
     });
 
     // Remove password from response
@@ -42,18 +42,25 @@ exports.createUser = async (req, res) => {
 
 // @desc    Get all users
 // @route   GET /api/users
-// @access  Private/Admin
+// @access  Private/Admin/Supervisor
 exports.getUsers = async (req, res) => {
   try {
     const { role } = req.query;
     let query = {};
     
-    if (role) {
+    // If the requester is a supervisor, only show workers
+    if (req.user.role === 'supervisor') {
+      query.role = 'worker';
+    } 
+    // If the requester is an admin and a specific role is requested
+    else if (role) {
       query.role = role;
     }
 
-    const users = await User.find(query).select('-password');
-    res.json({
+    // Exclude sensitive fields from the response
+    const users = await User.find(query).select('-password -resetPasswordToken -resetPasswordExpire');
+    
+    res.status(200).json({
       success: true,
       count: users.length,
       data: users

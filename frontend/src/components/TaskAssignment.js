@@ -10,7 +10,7 @@ import {
   Row,
   Col,
 } from "antd";
-import { getUsersByRole, createTask } from "../services/dashboardService";
+import api from "../api";
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -29,7 +29,8 @@ const TaskAssignment = ({ visible, onClose, onSuccess }) => {
 
   const fetchWorkers = async () => {
     try {
-      const workersData = await getUsersByRole('worker');
+      const response = await api.get('/users');
+      const workersData = response.data.data.filter(user => user.role === 'worker');
       setWorkers(workersData);
     } catch (error) {
       message.error('Failed to fetch workers');
@@ -41,20 +42,26 @@ const TaskAssignment = ({ visible, onClose, onSuccess }) => {
     try {
       setLoading(true);
       
-      // Format the data
+      // Format the data to match backend expectations
       const taskData = {
         taskName: values.taskName,
         description: values.description,
-        date: values.date ? values.date.toISOString() : null,
+        date: values.date ? values.date.toISOString() : new Date().toISOString(),
         assignedWorkers: values.assignedWorkers || [],
         priority: values.priority || 'medium',
         status: 'pending'
       };
 
-      await createTask(taskData);
-      message.success('Task created successfully');
-      onSuccess();
-      onClose();
+      // Call the API to create the task
+      const response = await api.post('/api/tasks', taskData);
+      
+      if (response.data.success) {
+        message.success('Task created successfully');
+        onSuccess();
+        onClose();
+      } else {
+        throw new Error(response.data.message || 'Failed to create task');
+      }
     } catch (error) {
       message.error('Failed to create task');
       console.error('Error creating task:', error);

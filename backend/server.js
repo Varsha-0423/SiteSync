@@ -14,8 +14,18 @@ connectDB();
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// CORS Configuration
+const corsOptions = {
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+};
+
+// Apply CORS middleware to all routes
+app.use(cors(corsOptions));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -29,11 +39,16 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Routes
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/tasks', require('./routes/taskRoutes'));
 app.use('/api/work', require('./routes/workRoutes'));
+app.use('/api/worker', require('./routes/workerRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
 
 // Error handler middleware (should be after all other middleware and routes)
 app.use(errorHandler);

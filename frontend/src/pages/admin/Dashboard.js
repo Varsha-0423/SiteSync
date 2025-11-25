@@ -45,9 +45,11 @@ function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
+      console.log('Fetching dashboard data...');
       
       // Fetch dashboard statistics
       const statsData = await getDashboardStats();
+      console.log('Dashboard stats:', statsData);
       setStats(statsData);
       
       // Fetch tasks with filters
@@ -56,12 +58,20 @@ function Dashboard() {
       if (filters.assignedWorker !== 'all') taskFilters.assignedWorker = filters.assignedWorker;
       
       const tasksData = await getTasks(taskFilters);
+      console.log('Tasks data:', tasksData);
       setTasks(tasksData);
+      console.log('Dashboard state updated with:', { stats: statsData, tasks: tasksData });
     } catch (error) {
-      message.error('Failed to fetch dashboard data');
-      console.error('Dashboard data fetch error:', error);
+      console.error('Error in fetchDashboardData:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        stack: error.stack
+      });
+      message.error(`Failed to load dashboard data: ${error.message}`);
     } finally {
       setLoading(false);
+      console.log('Loading state set to false');
     }
   };
 

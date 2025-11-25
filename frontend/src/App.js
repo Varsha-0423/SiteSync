@@ -1,44 +1,71 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/admin/Dashboard";
 import AdminCreateUser from "./pages/admin/AdminCreateUser";
 import UserDetails from "./pages/admin/UserDetails";
-import WorkerSubmit from "./pages/worker/WorkerSubmit";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminUploadExcel from "./pages/admin/AdminUploadExcel";
 import TaskAssignment from "./pages/admin/TaskAssignment";
-import AdminTodayTasks from "./pages/admin/AdminTodayTasks";
+import TaskScheduler from "./pages/admin/TaskScheduler";
 import SupervisorDashboard from "./pages/supervisor/SupervisorDashboard";
 import SupervisorLayout from "./pages/supervisor/SupervisorLayout";
 import SupervisorTaskAssignment from "./pages/supervisor/SupervisorTaskAssignment";
-import WorkerDashboard from "./pages/worker/WorkerDashboard";
-import WorkerLayout from "./pages/worker/WorkerLayout";
-import MyTasks from "./pages/worker/MyTasks";
-import SubmitWork from "./pages/worker/SubmitWork";
+import TaskDetail from "./pages/admin/TaskDetail";
+// import SubmitWork from "./pages/supervisor/tasks/SubmitWork";
 
 function App() {
-  const isAuthenticated = !!localStorage.getItem('token');
-
-  // Wrap the entire app with AuthProvider
   return (
-    <AuthProvider>
     <Router>
-      <div className="App">
-        <Routes>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </Router>
+  );
+}
+
+// Move the main app content into a separate component that uses AuthProvider
+function AppContent() {
+  const { currentUser } = useAuth();
+  const isAuthenticated = !!localStorage.getItem('token');
+  const location = useLocation();
+
+  // Handle authentication state
+  if (!isAuthenticated) {
+    if (location.pathname !== '/login') {
+      return <Navigate to="/login" replace state={{ from: location }} />;
+    }
+  } else if (location.pathname === '/' || location.pathname === '/login') {
+    // If authenticated and on root or login, redirect to appropriate dashboard
+    const userRole = currentUser?.role;
+    // Ensure we don't redirect to worker dashboard
+    const redirectTo = userRole === 'worker' ? '/supervisor/dashboard' : `/${userRole}/dashboard`;
+    return <Navigate to={redirectTo} replace />;
+  }
+
+  return (
+    <div className="App">
+      <Routes>
           <Route 
             path="/" 
             element={
               isAuthenticated 
-                ? <Navigate to="/dashboard" replace /> 
+                ? <Navigate to={`/${currentUser?.role || 'worker'}/dashboard`} replace />
                 : <Navigate to="/login" replace /> 
             } 
           />
           
           {/* Public routes */}
-          <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/dashboard" replace />} />
+          <Route 
+            path="/login" 
+            element={
+              isAuthenticated 
+                ? <Navigate to={`/${currentUser?.role || 'worker'}/dashboard`} replace /> 
+                : <Login />
+            } 
+          />
           
           {/* Protected routes */}
           {/* Admin Routes */}
@@ -53,32 +80,32 @@ function App() {
             } 
           />
           
-          {/* Supervisor Routes */}
+          {/* Supervisor Routes with worker functionality */}
           <Route 
-            path="/supervisor/dashboard" 
+            path="/supervisor" 
             element={
               <ProtectedRoute allowedRoles={['supervisor']}>
-                <SupervisorLayout>
-                  <SupervisorDashboard />
-                </SupervisorLayout>
-              </ProtectedRoute>
-            } 
-          />
-          
-          {/* Worker Routes */}
-          <Route 
-            path="/worker" 
-            element={
-              <ProtectedRoute allowedRoles={['worker']}>
-                <WorkerLayout />
+                <SupervisorLayout />
               </ProtectedRoute>
             }
           >
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<WorkerDashboard />} />
-            <Route path="my-tasks" element={<MyTasks />} />
-            <Route path="submit-work" element={<SubmitWork />} />
+            <Route path="dashboard" element={<SupervisorDashboard />} />
+            <Route path="assign-tasks" element={<SupervisorTaskAssignment />} />
+            <Route path="tasks/:taskId" element={<TaskDetail />} />
+            {/* <Route path="submit-work" element={<SubmitWork />} /> */}
+            <Route path="*" element={<Navigate to="dashboard" replace />} />
           </Route>
+          
+          {/* Task detail route accessible only to admins */}
+          <Route 
+            path="/tasks/:taskId" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <TaskDetail />
+              </ProtectedRoute>
+            } 
+          />
           
           {/* Admin routes */}
           <Route 
@@ -93,23 +120,10 @@ function App() {
             <Route path="create-user" element={<AdminCreateUser />} />
             <Route path="upload-tasks" element={<AdminUploadExcel />} />
             <Route path="assign-tasks" element={<TaskAssignment />} />
-            <Route path="today-tasks" element={<AdminTodayTasks />} />
+            <Route path="schedule-tasks" element={<TaskScheduler />} />
             <Route path="*" element={<Navigate to="create-user" replace />} />
           </Route>
           
-          {/* Supervisor routes */}
-          <Route 
-            path="/supervisor" 
-            element={
-              <ProtectedRoute allowedRoles={['supervisor']}>
-                <SupervisorLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Navigate to="assign-tasks" replace />} />
-            <Route path="assign-tasks" element={<SupervisorTaskAssignment />} />
-            <Route path="*" element={<Navigate to="assign-tasks" replace />} />
-          </Route>
           
           {/* User details route */}
           <Route 
@@ -127,8 +141,6 @@ function App() {
           <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
         </Routes>
       </div>
-    </Router>
-    </AuthProvider>
   );
 }
 

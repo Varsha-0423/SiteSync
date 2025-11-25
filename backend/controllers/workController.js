@@ -3,23 +3,52 @@ const WorkReport = require("../models/WorkReport");
 // Submit work report (for workers)
 exports.submitWork = async (req, res) => {
   try {
-    const { task, status, updateText, photoUrl } = req.body;
-    const worker = req.user.id; // From auth middleware
+    const { worker, task, status, quantity, unit, description, attachments } = req.body;
+
+    if (!worker || !task || !status || !quantity || !unit || !description) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields"
+      });
+    }
 
     const workReport = await WorkReport.create({
       worker,
       task,
       status,
-      updateText,
-      photoUrl
+      quantity,
+      unit,
+      description,
+      attachments
     });
 
-    res.status(201).json({ success: true, workReport });
+    res.status(201).json({
+      success: true,
+      message: "Work submitted successfully",
+      workReport
+    });
+
   } catch (error) {
-    console.error('Error submitting work:', error);
-    res.status(500).json({ success: false, message: 'Failed to submit work' });
+    console.error("Error submitting work:", error);
+    res.status(500).json({ success: false, message: "Failed to submit work" });
   }
 };
+// Get all work reports for a specific task
+exports.getReportsByTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+
+    const reports = await WorkReport.find({ task: taskId })
+      .populate('worker', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: reports });
+  } catch (error) {
+    console.error('Error fetching work reports by task:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch reports for this task' });
+  }
+};
+
 
 // Get work reports (for workers - only their own reports)
 exports.getMyReports = async (req, res) => {

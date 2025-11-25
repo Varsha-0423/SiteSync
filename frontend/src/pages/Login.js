@@ -22,7 +22,11 @@ function Login() {
     }
 
     setIsLoading(true);
-    console.log('Attempting login with:', { email, role });
+    console.log('Attempting login with:', { 
+      email, 
+      role,
+      timestamp: new Date().toISOString() 
+    });
 
     try {
       const result = await login(email, password, role);
@@ -33,11 +37,28 @@ function Login() {
         console.log('Login successful, redirecting to:', redirectPath);
         navigate(redirectPath);
       } else {
-        setError(result.message || 'Login failed. Please check your credentials.');
+        const errorMessage = result.message || 'Login failed. Please check your credentials.';
+        console.error('Login failed:', errorMessage);
+        setError(errorMessage);
       }
     } catch (error) {
-      console.error('Login error:', error);
-      setError('An error occurred during login. Please try again.');
+      console.error('Login error:', {
+        name: error.name,
+        message: error.message,
+        status: error.status,
+        stack: error.stack,
+        response: error.response?.data
+      });
+      
+      let errorMessage = 'An error occurred during login. Please try again.';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

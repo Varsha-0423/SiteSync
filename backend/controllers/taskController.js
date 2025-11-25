@@ -1,8 +1,159 @@
+const mongoose = require('mongoose');
 const Task = require('../models/Task');
 const User = require('../models/User');
 const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
+
+// @desc    Get tasks assigned to a specific worker
+// @route   GET /api/worker/:workerId/tasks
+// @access  Private/Worker
+exports.getWorkerTasks = async (req, res) => {
+  console.log('=== getWorkerTasks START ===');
+  const { workerId } = req.params;
+  const { status = 'all' } = req.query;
+  
+  // Log the full request for debugging
+  console.log('Fetching tasks for workerId:', workerId, 'status:', status);
+  
+  try {
+    console.log('Request received with params:', { workerId, status });
+    
+    // Validate workerId format
+    if (!mongoose.Types.ObjectId.isValid(workerId)) {
+      console.error('Invalid workerId format:', workerId);
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid worker ID format',
+        error: 'INVALID_WORKER_ID',
+        workerId
+      });
+    }
+    
+    // Check if worker exists
+    try {
+      const worker = await User.findById(workerId).lean();
+      if (!worker) {
+        console.error('Worker not found:', workerId);
+        return res.status(404).json({
+          success: false,
+          message: 'Worker not found',
+          error: 'WORKER_NOT_FOUND',
+          workerId
+        });
+      }
+    } catch (userError) {
+      console.error('Error checking worker existence:', userError);
+      return res.status(500).json({
+        success: false,
+        message: 'Error validating worker',
+        error: 'WORKER_VALIDATION_ERROR',
+        details: process.env.NODE_ENV === 'development' ? userError.message : undefined
+      });
+    }
+
+    // Check MongoDB connection
+    try {
+      await mongoose.connection.db.admin().ping();
+      console.log('MongoDB connection is active');
+    } catch (dbError) {
+      console.error('MongoDB connection error:', dbError);
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection error',
+        error: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+      });
+    }
+
+    // Map frontend status to backend status values
+    const statusMap = {
+      'in-progress': 'on-schedule',
+      'inProgress': 'on-schedule',  // for backward compatibility
+      'behind': 'behind',
+      'ahead': 'ahead',
+      'completed': 'completed',
+      'pending': 'pending'
+    };
+
+    // Build query - try both worker and assignedWorkers for backward compatibility
+    const query = {
+      $or: [
+        { worker: new mongoose.Types.ObjectId(workerId) },
+        { assignedWorkers: { $in: [new mongoose.Types.ObjectId(workerId)] } }
+      ]
+    };
+    
+    console.log('MongoDB Query:', JSON.stringify(query, null, 2));
+    
+    // Add status filter if provided and not 'all'
+    if (status && status !== 'all') {
+      // Use the mapped status or fall back to the provided status
+      const mappedStatus = statusMap[status] || status;
+      query.status = mappedStatus;
+      console.log('Filtering by status:', mappedStatus);
+    }
+    
+    console.log('Executing query:', JSON.stringify(query, null, 2));
+    
+    // Execute query with error handling
+    let tasks = [];
+    try {
+      console.log('Executing MongoDB query...');
+      
+      // Execute the query with better error handling
+      tasks = await Task.find(query)
+        .sort({ date: 1, priority: 1 })
+        .populate('assignedBy', 'name')
+        .populate('assignedWorkers', 'name email')
+        .lean()
+        .exec();
+        
+      console.log(`Found ${tasks.length} tasks for worker ${workerId}`);
+
+      return res.json({
+        success: true,
+        count: tasks.length,
+        data: tasks
+      });
+      
+    } catch (queryError) {
+      console.error('Query execution error:', {
+        name: queryError.name,
+        message: queryError.message,
+        stack: queryError.stack
+      });
+      throw new Error('Error executing database query');
+    }
+    
+  } catch (error) {
+    console.error('Error in getWorkerTasks:', {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      timestamp: new Date().toISOString(),
+      errorType: error.name,
+      errorCode: error.code,
+      errorKey: error.keyValue,
+      errorErrors: error.errors
+    });
+    
+    // Make sure to return a proper error response
+    return res.status(500).json({ 
+      success: false,
+      message: 'Server error fetching worker tasks',
+      error: 'SERVER_ERROR',
+      details: process.env.NODE_ENV === 'development' ? {
+        message: error.message,
+        name: error.name,
+        code: error.code,
+        keyValue: error.keyValue,
+        errors: error.errors
+      } : undefined
+    });
+  } finally {
+    console.log('=== getWorkerTasks END ===');
+  }
+};
 
 // @desc    Get all tasks
 // @route   GET /api/tasks
@@ -30,6 +181,7 @@ exports.getTasks = async (req, res) => {
 
     const tasks = await Task.find(filter)
       .populate('assignedWorkers', 'name email')
+      .populate('assignedBy', 'name email')
       .sort({ createdAt: -1 });
 
     res.json({
@@ -55,13 +207,15 @@ exports.createTask = async (req, res) => {
       description,
       date,
       assignedWorkers,
+      assignedBy: req.user.id, // Add the admin's ID who is assigning the task
       priority: priority || 'medium',
       status: status || 'pending',
       isForToday: isForToday || false
     });
 
     const populatedTask = await Task.findById(task._id)
-      .populate('assignedWorkers', 'name email');
+      .populate('assignedWorkers', 'name email')
+      .populate('assignedBy', 'name email');
 
     res.status(201).json({
       success: true,
@@ -79,7 +233,8 @@ exports.createTask = async (req, res) => {
 exports.getTaskById = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id)
-      .populate('assignedWorkers', 'name email');
+      .populate('assignedWorkers', 'name email')
+      .populate('assignedBy', 'name email');
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
@@ -103,10 +258,34 @@ exports.updateTask = async (req, res) => {
     console.log('Updating task with ID:', req.params.id);
     console.log('Update data:', req.body);
     
+    // Create a copy of the request body to modify
+    const updateData = { ...req.body };
+    
+    // Handle assignedWorkers if it exists in the request
+    if (updateData.assignedWorkers) {
+      // Ensure assignedWorkers is an array
+      const workerIds = Array.isArray(updateData.assignedWorkers) 
+        ? updateData.assignedWorkers 
+        : [updateData.assignedWorkers];
+      
+      // Filter out any invalid values and ensure they're strings
+      updateData.assignedWorkers = workerIds
+        .map(id => {
+          // If it's an object, try to get the _id, otherwise use the value directly
+          if (typeof id === 'object' && id !== null) {
+            return id._id || id;
+          }
+          return id;
+        })
+        .filter(id => id && typeof id === 'string' && id.length > 0);
+    }
+    
+    console.log('Processed update data:', updateData);
+    
     const task = await Task.findByIdAndUpdate(
       req.params.id,
-      req.body,
-      { new: true, runValidators: true }
+      updateData,
+      { new: true, runValidators: true, runSettersOnQuery: true }
     ).populate('assignedWorkers', 'name email');
 
     if (!task) {
@@ -238,7 +417,8 @@ exports.uploadExcel = async (req, res) => {
           date: row['Date'] || row['date'] || new Date(),
           priority: row['Priority'] || row['priority'] || 'medium',
           status: row['Status'] || row['status'] || 'pending',
-          assignedWorkers: []
+          assignedWorkers: [],
+          assignedBy: req.user.id
         };
 
         // Handle assigned workers if present
