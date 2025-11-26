@@ -21,7 +21,9 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
       try {
         if (!isSupervisor) {
           const response = await api.get("/users?role=worker");
-          setWorkers(response.data.data || []);
+          const workersData = response.data.data || [];
+          console.log('Fetched workers:', workersData);
+          setWorkers(workersData);
         } else {
           // For supervisor, set the current user as the worker
           const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -155,6 +157,9 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
         deadline: formData.deadline ? new Date(formData.deadline).toISOString() : ''
       };
       
+      console.log('Submitting work data:', workData);
+      console.log('Worker ID type:', typeof formData.worker, 'Value:', formData.worker);
+      
       try {
         // Submit work report
         const response = await api.post('/work/submit', workData);
@@ -265,8 +270,8 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
         >
           <option value="">-- Select Worker --</option>
           {workers.map(worker => (
-            <option key={worker._id} value={worker._id}>
-              {worker.name} ({worker.employeeId || worker._id})
+            <option key={worker._id || worker.id} value={worker._id || worker.id}>
+              {worker.name}
             </option>
           ))}
         </select>

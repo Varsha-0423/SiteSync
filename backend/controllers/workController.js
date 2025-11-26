@@ -1,11 +1,12 @@
 const WorkReport = require("../models/WorkReport");
+const { io } = require('../server');
 
 // Submit work report (for workers)
 exports.submitWork = async (req, res) => {
   try {
-    const { worker, task, status, quantity, unit, description, attachments } = req.body;
+    const { worker, task, status, quantity, unit, updateText, photoUrl, photoUrls } = req.body;
 
-    if (!worker || !task || !status || !quantity || !unit || !description) {
+    if (!worker || !task || !status) {
       return res.status(400).json({
         success: false,
         message: "Missing required fields"
@@ -18,9 +19,21 @@ exports.submitWork = async (req, res) => {
       status,
       quantity,
       unit,
-      description,
-      attachments
+      updateText,
+      photoUrl,
+      photoUrls
     });
+
+    // Emit WebSocket event to notify all connected clients
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('workSubmitted', { 
+        taskId: workReport.task,
+        workReport,
+        message: 'New work submission received',
+        timestamp: new Date().toISOString()
+      });
+    }
 
     res.status(201).json({
       success: true,

@@ -21,7 +21,10 @@ function SupervisorTaskAssignment() {
     try {
       setLoading(true);
       const response = await api.get("/tasks/supervisor-today");
-      setTasks(response.data.data || []);
+      const tasksData = response.data.data || [];
+      console.log('Fetched tasks with deadline:', tasksData);
+      console.log('First task deadlineDate:', tasksData[0]?.deadline);
+      setTasks(tasksData);
     } catch (error) {
       console.error("Error fetching today tasks:", error);
       setMessage("Error fetching today tasks");
@@ -55,121 +58,65 @@ function SupervisorTaskAssignment() {
     }
   };
 
-  const handleAssignmentChange = async (taskId, workerIds) => {
+  const handleAssignmentChange = async (taskId, newWorkerIds) => {
+    const currentTask = tasks.find(t => t._id === taskId);
+    const currentWorkerIds = (currentTask?.assignedWorkers || [])
+      .map(w => typeof w === "object" && w._id ? w._id : w)
+      .filter(Boolean);
+
+    // Determine what changed
+    const addedWorkers = newWorkerIds.filter(id => !currentWorkerIds.includes(id));
+    const removedWorkers = currentWorkerIds.filter(id => !newWorkerIds.includes(id));
+
+    // If nothing changed, return
+    if (addedWorkers.length === 0 && removedWorkers.length === 0) {
+      return;
+    }
+
+    // Get worker names for confirmation
+    const getWorkerNames = (ids) => ids.map(id => 
+      workers.find(w => w._id === id)?.name || 'Unknown'
+    ).join(', ');
+
+    let confirmMessage = '';
+    if (addedWorkers.length > 0 && removedWorkers.length === 0) {
+      confirmMessage = `Would you like to assign ${getWorkerNames(addedWorkers)} to this task?`;
+    } else if (removedWorkers.length > 0 && addedWorkers.length === 0) {
+      confirmMessage = `Would you like to unassign ${getWorkerNames(removedWorkers)} from this task?`;
+    } else {
+      confirmMessage = `Update worker assignments?`;
+    }
+
+    if (!window.confirm(confirmMessage)) {
+      // Revert the UI by refreshing tasks
+      await fetchTodayTasks();
+      return;
+    }
+
     try {
       setLoading(true);
-      console.log('=== handleAssignmentChange ===');
-      console.log('Task ID:', taskId);
-      console.log('Raw workerIds:', workerIds);
-      console.log('Available workers:', workers);
-
-      // Ensure workerIds is an array and filter out any invalid/empty IDs
-      const validWorkerIds = Array.isArray(workerIds) 
-        ? workerIds.filter(id => {
-            console.log('Processing worker ID:', id, 'Type:', typeof id);
-            if (!id || typeof id !== 'string' || id.trim() === '') {
-              console.log('Invalid ID format:', id);
-              return false;
-            }
-            
-            // Check if this ID exists in our workers list
-            const worker = workers.find(w => w._id === id);
-            const exists = !!worker;
-            
-            if (!exists) {
-              console.warn(`Worker ID ${id} not found in workers list. Available worker IDs:`, 
-                workers.map(w => w._id));
-            } else {
-              console.log(`Found worker: ${worker.name} (${worker._id})`);
-            }
-            
-            return exists;
-          })
-        : [];
-
-      console.log('Valid worker IDs after filtering:', validWorkerIds);
+      console.log('Sending:', { taskId, assignedWorkers: newWorkerIds });
       
-      // Log the task being updated
-      const currentTask = tasks.find(t => t._id === taskId);
-      console.log('Current task state:', {
-        taskId,
-        currentAssignedWorkers: currentTask?.assignedWorkers || [],
-        currentTaskName: currentTask?.taskName
-      });
-
-      // If no valid workers, clear the assignment
-      if (validWorkerIds.length === 0) {
-        const response = await api.put(`/tasks/${taskId}`, {
-          assignedWorkers: []
-        });
-        
-        if (response.data.success) {
-          await fetchTodayTasks(); // Refresh the tasks to ensure UI is in sync
-          setMessage('Workers unassigned successfully');
-          setTimeout(() => setMessage(''), 3000);
-        }
-        return;
-      }
-
-      // Verify all worker IDs exist in the workers list
-      const invalidWorkerIds = validWorkerIds.filter(
-        workerId => !workers.some(worker => worker._id === workerId)
-      );
-
-      if (invalidWorkerIds.length > 0) {
-        console.error('Invalid worker IDs found:', invalidWorkerIds);
-        setMessage(`Error: Invalid worker IDs: ${invalidWorkerIds.join(', ')}`);
-        setTimeout(() => setMessage(''), 5000);
-        return;
-      }
-
-      // Get worker names for confirmation
-      const selectedWorkers = validWorkerIds
-        .map(id => {
-          const worker = workers.find(w => w._id === id);
-          return worker ? worker.name : `Worker (${id})`;
-        })
-        .join(', ');
-
-      // Confirm before making changes
-      if (!window.confirm(`Assign this task to: ${selectedWorkers || 'No workers selected'}?`)) {
-        setLoading(false);
-        return;
-      }
-
-      // Update the task with the new worker assignments
       const response = await api.put(`/tasks/${taskId}`, {
-        assignedWorkers: validWorkerIds
+        assignedWorkers: newWorkerIds
       });
 
       if (response.data.success) {
-        // Get the updated task data
-        const updatedTask = response.data.data;
-        
-        // If the backend returns the full task with populated workers
-        if (updatedTask) {
-          // Update the tasks list with the updated task
-          setTasks(prevTasks => 
-            prevTasks.map(task => 
-              task._id === updatedTask._id 
-                ? { 
-                    ...task, 
-                    assignedWorkers: updatedTask.assignedWorkers || [] 
-                  } 
-                : task
-            )
-          );
-        } else {
-          // If the backend doesn't return the full task, fetch the updated task
-          await fetchTodayTasks();
-        }
-        
-        setMessage('Workers assigned successfully');
+        await fetchTodayTasks();
+        setMessage(newWorkerIds.length === 0 ? 'Workers unassigned successfully' : 'Workers assigned successfully');
         setTimeout(() => setMessage(''), 3000);
       }
     } catch (error) {
-      console.error('Error assigning workers:', error);
-      setMessage(error.response?.data?.message || 'Error assigning workers');
+      console.error('Full error:', error);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error message:', error.response?.data?.message);
+      console.error('Validation errors:', error.response?.data?.errors);
+      
+      const errorMsg = error.response?.data?.errors?.[0]?.message || 
+                       error.response?.data?.message || 
+                       'Error updating workers';
+      setMessage(errorMsg);
+      await fetchTodayTasks();
     } finally {
       setLoading(false);
     }
@@ -338,7 +285,14 @@ function SupervisorTaskAssignment() {
                   <p style={{ margin: "0 0 10px 0", color: "#666" }}>
                     {task.description}
                   </p>
-                  <small>Date: {new Date(task.date).toLocaleDateString()}</small>
+                  <div style={{ fontSize: "13px", color: "#555", display: "flex", gap: "20px" }}>
+                    <div>Schedule Date: {new Date(task.date).toLocaleDateString()}</div>
+                    {task.deadline ? (
+                      <div>Deadline Date: {new Date(task.deadline).toLocaleDateString()}</div>
+                    ) : (
+                      <div style={{ color: "#999", fontStyle: "italic" }}>Deadline Date: Not set</div>
+                    )}
+                  </div>
                 </div>
 
                 <div style={{ display: "flex", gap: "10px" }}>

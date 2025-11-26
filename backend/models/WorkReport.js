@@ -15,11 +15,17 @@ const workReportSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["completed", "half-done"],
+    enum: ["completed", "in-progress", "on-hold", "issues", "half-done"],
     required: true
   },
 
+  quantity: { type: Number },
+
+  unit: { type: String },
+
   photoUrl: { type: String },
+
+  photoUrls: [{ type: String }],
 
   updateText: { type: String },
 

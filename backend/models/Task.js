@@ -88,15 +88,15 @@ const taskSchema = new mongoose.Schema({
   assignedWorkers: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    validate: {
-      validator: async function(workers) {
-        if (!workers || workers.length === 0) return true;
-        const User = mongoose.model('User');
-        const users = await User.find({ _id: { $in: workers } });
-        return users.length === workers.length;
-      },
-      message: 'One or more assigned workers are invalid'
-    }
+    // validate: {
+    //   validator: async function(workers) {
+    //     if (!workers || workers.length === 0) return true;
+    //     const User = mongoose.model('User');
+    //     const users = await User.find({ _id: { $in: workers } });
+    //     return users.length === workers.length;
+    //   },
+    //   message: 'One or more assigned workers are invalid'
+    // }
   }],
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

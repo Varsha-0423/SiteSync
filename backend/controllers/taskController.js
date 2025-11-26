@@ -290,8 +290,8 @@ const updateTask = async (req, res) => {
     const task = await Task.findByIdAndUpdate(
       req.params.id,
       updateData,
-      { new: true, runValidators: true, runSettersOnQuery: true }
-    );
+      { new: true, runValidators: false }
+    ).populate('assignedWorkers', 'name email');
 
     if (!task) {
       return res.status(404).json({ message: 'Task not found' });
@@ -428,7 +428,10 @@ const uploadExcel = async (req, res) => {
           supervisor: row['Supervisor'] || row['supervisor']
         };
 
-        const task = await Task.create(taskData);
+        const task = await Task.create({
+          ...taskData,
+          createdBy: req.user._id
+        });
         createdTasks.push(task);
       } catch (error) {
         console.error(`Error processing row ${i + 1}:`, error);
@@ -484,6 +487,7 @@ const getSupervisorTodayTasks = async (req, res) => {
   try {
     // Get tasks marked for today for supervisor assignment
     const tasks = await Task.find({ isForToday: true })
+      .populate('assignedWorkers', 'name email')
       .sort({ createdAt: -1 });
 
     console.log('Supervisor tasks with deadlineDate:', tasks.map(t => ({ id: t._id, deadlineDate: t.deadlineDate })));
