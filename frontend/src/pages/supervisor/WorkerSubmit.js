@@ -4,7 +4,7 @@ import api from "../../api";
 function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = false }) {
   const [formData, setFormData] = useState({
     worker: "",
-    status: isSupervisor ? "completed" : "in-progress",
+    status: "in-progress", // Default status for new submissions
     quantity: "",
     unit: "",
     description: "",
@@ -164,17 +164,15 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
         // Submit work report
         const response = await api.post('/work/submit', workData);
         
-        // If supervisor is submitting, update task status to completed
-        if (isSupervisor) {
-          try {
-            await api.put(`/tasks/${taskId}`, {
-              status: 'completed',
-              lastUpdated: new Date().toISOString()
-            });
-          } catch (updateError) {
-            console.error('Error updating task status:', updateError);
-            // Don't fail the whole submission if status update fails
-          }
+        // Update task status with the selected status
+        try {
+          await api.put(`/tasks/${taskId}`, {
+            status: formData.status, // Use the selected status
+            lastUpdated: new Date().toISOString()
+          });
+        } catch (updateError) {
+          console.error('Error updating task status:', updateError);
+          // Don't fail the whole submission if status update fails
         }
         
         setMessage({ 
@@ -186,9 +184,9 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
         
         // Update task status in parent component
         if (onWorkSubmitted && response.data && response.data.task) {
-          onWorkSubmitted(response.data.task._id, 'completed');
+          onWorkSubmitted(response.data.task._id, formData.status);
         } else if (onWorkSubmitted) {
-          onWorkSubmitted(taskId, 'completed');
+          onWorkSubmitted(taskId, formData.status);
         }
       } catch (submitError) {
         console.error('Error submitting work:', submitError);

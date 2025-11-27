@@ -240,11 +240,6 @@ function TaskDetail() {
               </div>
               
               <div className="detail-row">
-                <span className="label">Progress:</span>
-                <span>{task.progress || 0}%</span>
-              </div>
-              
-              <div className="detail-row">
                 <span className="label">Marked for Today:</span>
                 <span>{task.isForToday ? 'Yes' : 'No'}</span>
               </div>

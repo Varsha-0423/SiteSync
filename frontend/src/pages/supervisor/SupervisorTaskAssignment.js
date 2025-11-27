@@ -122,21 +122,6 @@ function SupervisorTaskAssignment() {
     }
   };
 
-  const handleStatusChange = async (taskId, status) => {
-    try {
-      setLoading(true);
-      await api.put(`/tasks/${taskId}`, { status });
-      await fetchTodayTasks();
-      setMessage("Task status updated successfully");
-      setTimeout(() => setMessage(""), 3000);
-    } catch (error) {
-      console.error("Error updating task status:", error);
-      setMessage("Error updating task status");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getPriorityColor = (priority) => {
     switch (priority) {
       case "high":
@@ -308,27 +293,23 @@ function SupervisorTaskAssignment() {
                   >
                     {task.priority.toUpperCase()}
                   </span>
-                  <select
-                    value={task.status}
-                    onChange={(e) => handleStatusChange(task._id, e.target.value)}
-                    style={{
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "11px",
-                      backgroundColor: getStatusColor(task.status),
-                      color: "white",
-                      border: "none",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                      height: "24px"
-                    }}
-                  >
-                    <option value="pending">PENDING</option>
-                    <option value="on-schedule">ON-SCHEDULE</option>
-                    <option value="behind">BEHIND</option>
-                    <option value="ahead">AHEAD</option>
-                    <option value="completed">COMPLETED</option>
-                  </select>
+                  <div style={{ marginBottom: "10px" }}>
+                    <span 
+                      style={{
+                        color: getStatusColor(task.status),
+                        fontWeight: 500,
+                        textTransform: 'capitalize',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: `${getStatusColor(task.status)}20`,
+                        display: 'inline-block',
+                        minWidth: '80px',
+                        textAlign: 'center'
+                      }}
+                    >
+                      {task.status.replace('-', ' ')}
+                    </span>
+                  </div>
                 </div>
               </div>
 
