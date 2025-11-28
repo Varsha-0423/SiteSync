@@ -1,48 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, Descriptions, Button, Spin, message, Typography, Divider, Tag } from "antd";
+import { 
+  Card, 
+  Descriptions, 
+  Button, 
+  Spin, 
+  message, 
+  Typography, 
+  Space,
+  Tag,
+  Row,
+  Col,
+  Divider
+} from "antd";
 import { 
   ArrowLeftOutlined, 
-  UserOutlined, 
-  MailOutlined, 
-  IdcardOutlined,
-  BankOutlined,
+  EditOutlined, 
+  UserOutlined,
+  MailOutlined,
   CalendarOutlined,
-  CrownOutlined,
-  ToolOutlined,
-  ClockCircleOutlined,
-  DollarOutlined,
-  CalculatorOutlined
+  TeamOutlined,
+  ClockCircleOutlined
 } from "@ant-design/icons";
 import api from "../../api";
 
 const { Title, Text } = Typography;
-
-// Styled components
-const PageContainer = ({ children }) => (
-  <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-    {children}
-  </div>
-);
-
-const SectionTitle = ({ children }) => (
-  <Divider orientation="left" style={{ fontSize: '18px', fontWeight: '500', margin: '24px 0 16px 0' }}>
-    {children}
-  </Divider>
-);
-
-const StyledCard = ({ children, ...props }) => (
-  <Card 
-    {...props} 
-    style={{ 
-      borderRadius: '8px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      marginBottom: '24px'
-    }}
-  >
-    {children}
-  </Card>
-);
 
 function UserDetails() {
   const { userId } = useParams();
@@ -51,194 +33,272 @@ function UserDetails() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('Fetching user with ID:', userId); // Debug log
     fetchUserDetails();
   }, [userId]);
 
   const fetchUserDetails = async () => {
     try {
       setLoading(true);
-      setUser(null);
+      console.log('Fetching user with ID:', userId);
       
-      console.log(`Making API call to: /users/${userId}`); // Debug log
-      const response = await api.get(`/users/${userId}`);
-      console.log('API Response:', response.data); // Debug log
-
-      if (response.data && response.data.success) {
-        setUser(response.data.data);
-      } else {
-        throw new Error(response.data?.message || "Failed to fetch user details");
+      if (!userId || userId === 'undefined') {
+        throw new Error('Invalid user ID');
       }
+      
+      const response = await api.get(`/users/${userId}`);
+      console.log('User details response:', response.data);
+      
+      if (response.data) {
+        // Check both response formats that might come from the backend
+        const userData = response.data.data || response.data;
+        if (userData) {
+          setUser(userData);
+          return;
+        }
+      }
+      throw new Error('Invalid user data received');
     } catch (error) {
       console.error("Error fetching user details:", error);
       const errorMessage = error.response?.data?.message || 
                          error.message || 
                          'Failed to fetch user details. Please try again.';
       message.error(errorMessage);
+      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  if (!user) {
+  const getRoleColor = (role) => {
+    if (!role) return 'default';
+    switch (role) {
+      case 'admin': return 'red';
+      case 'supervisor': return 'blue';
+      case 'worker': return 'green';
+      default: return 'default';
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
     return (
-      <PageContainer>
-        <Button 
-          type="link" 
-          icon={<ArrowLeftOutlined />} 
-          onClick={() => navigate(-1)}
-          style={{ marginBottom: '16px' }}
-        >
-          Back to Users
-        </Button>
-        <StyledCard>
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
-            <Title level={4} style={{ color: '#ff4d4f' }}>Worker Not Found</Title>
-            <p>We couldn't find the worker you're looking for.</p>
-            <Button 
-              type="primary" 
-              onClick={() => navigate(-1)}
-              style={{ marginTop: '16px' }}
-            >
-              Return to Users List
-            </Button>
-          </div>
-        </StyledCard>
-      </PageContainer>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '400px' 
+      }}>
+        <Spin size="large" tip="Loading user details..." />
+      </div>
     );
   }
 
-  const renderStatusTag = (role) => {
-    let color = 'default';
-    switch(role) {
-      case 'admin':
-        color = 'red';
-        break;
-      case 'supervisor':
-        color = 'blue';
-        break;
-      case 'worker':
-        color = 'green';
-        break;
-      default:
-        color = 'default';
-    }
+  if (!user) {
     return (
-      <Tag color={color} style={{ textTransform: 'capitalize' }}>
-        {role}
-      </Tag>
+      <div style={{ padding: '24px' }}>
+        <Card>
+          <div style={{ textAlign: 'center' }}>
+            <UserOutlined style={{ fontSize: '48px', color: '#ccc', marginBottom: '16px' }} />
+            <Title level={4} type="secondary">User not found</Title>
+            <Text type="secondary">The user you're looking for doesn't exist or you don't have permission to view it.</Text>
+            <br />
+            <Button 
+              type="primary" 
+              style={{ marginTop: '16px' }}
+              onClick={() => navigate('/admin/create-user')}
+            >
+              Back to Users
+            </Button>
+          </div>
+        </Card>
+      </div>
     );
-  };
+  }
 
   return (
-    <PageContainer>
-      <Button 
-        type="link" 
-        icon={<ArrowLeftOutlined />} 
-        onClick={() => navigate(-1)}
-        style={{ marginBottom: '16px' }}
-      >
-        Back to Users
-      </Button>
-      
-      <StyledCard 
-        title={
-          <>
-            <UserOutlined style={{ marginRight: '8px' }} />
-            Worker Details
-          </>
-        }
-        loading={loading}
-      >
-        <SectionTitle>
-          <IdcardOutlined style={{ marginRight: '8px' }} />
-          Personal Information
-        </SectionTitle>
-        <Descriptions bordered column={{ xs: 1, md: 2 }}>
-          <Descriptions.Item label={
-            <span><UserOutlined style={{ marginRight: '8px' }} />Full Name</span>
-          }>
-            {user.name || '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><MailOutlined style={{ marginRight: '8px' }} />Email</span>
-          }>
-            {user.email || '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><IdcardOutlined style={{ marginRight: '8px' }} />Employee Code</span>
-          }>
-            {user.code || '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><CrownOutlined style={{ marginRight: '8px' }} />Role</span>
-          }>
-            {renderStatusTag(user.role)}
-          </Descriptions.Item>
-        </Descriptions>
+    <div style={{ padding: '24px' }}>
+      {/* Header Actions */}
+      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+        <Col>
+          <Button 
+            icon={<ArrowLeftOutlined />} 
+            onClick={() => navigate('/admin/create-user')}
+          >
+            Back to Users
+          </Button>
+        </Col>
+        <Col>
+          <Button 
+            type="primary" 
+            icon={<EditOutlined />}
+            onClick={() => {
+              message.info('Edit functionality coming soon!');
+            }}
+          >
+            Edit User
+          </Button>
+        </Col>
+      </Row>
 
-        <SectionTitle>
-          <BankOutlined style={{ marginRight: '8px' }} />
-          Work Information
-        </SectionTitle>
-        <Descriptions bordered column={{ xs: 1, md: 2 }}>
-          <Descriptions.Item label={
-            <span><BankOutlined style={{ marginRight: '8px' }} />Division</span>
-          }>
-            {user.division || '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><CalendarOutlined style={{ marginRight: '8px' }} />Payroll Month</span>
-          }>
-            {user.payrollMonth || '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><CrownOutlined style={{ marginRight: '8px' }} />Designation</span>
-          }>
-            {user.designation || '-'}
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><ToolOutlined style={{ marginRight: '8px' }} />Job</span>
-          }>
-            {user.job || '-'}
-          </Descriptions.Item>
-        </Descriptions>
+      <Row gutter={[24, 24]}>
+        {/* User Profile Card */}
+        <Col xs={24} md={8}>
+          <Card>
+            <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <div style={{ 
+                width: '100px', 
+                height: '100px', 
+                borderRadius: '50%', 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                margin: '0 auto 16px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+              }}>
+                <UserOutlined style={{ fontSize: '48px', color: 'white' }} />
+              </div>
+              <Title level={2} style={{ margin: 0, color: '#262626' }}>
+                {user.name || 'Unknown User'}
+              </Title>
+              <Tag 
+                color={getRoleColor(user.role)} 
+                style={{ marginTop: '12px', padding: '4px 12px', fontSize: '14px' }}
+              >
+                {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Unknown Role'}
+              </Tag>
+            </div>
+            
+            <Divider />
+            
+            <div style={{ textAlign: 'center' }}>
+              <Space direction="vertical" size="small">
+                <div>
+                  <Text type="secondary" style={{ fontSize: '12px' }}>USER ID</Text>
+                  <br />
+                  <Text code style={{ fontSize: '11px' }}>{user._id}</Text>
+                </div>
+              </Space>
+            </div>
+          </Card>
+        </Col>
 
-        <SectionTitle>
-          <CalculatorOutlined style={{ marginRight: '8px' }} />
-          Attendance & Payroll
-        </SectionTitle>
-        <Descriptions bordered column={{ xs: 1, md: 2 }}>
-          <Descriptions.Item label={
-            <span><ClockCircleOutlined style={{ marginRight: '8px' }} />Days Attended</span>
-          }>
-            {user.daysAttended || '0'} days
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><ClockCircleOutlined style={{ marginRight: '8px' }} />OT Hours</span>
-          }>
-            {user.otHours || '0'} hours
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><DollarOutlined style={{ marginRight: '8px' }} />Net Salary</span>
-          }>
-            {user.netSalary ? `$${Number(user.netSalary).toFixed(2)}` : '$0.00'}
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><DollarOutlined style={{ marginRight: '8px' }} />Fixed Cost</span>
-          }>
-            {user.fixedCost ? `$${Number(user.fixedCost).toFixed(2)}` : '$0.00'}
-          </Descriptions.Item>
-          <Descriptions.Item label={
-            <span><DollarOutlined style={{ marginRight: '8px' }} />Total Cost</span>
-          } span={2}>
-            <Text strong style={{ color: '#1890ff', fontSize: '16px' }}>
-              {user.totalCost ? `$${Number(user.totalCost).toFixed(2)}` : '$0.00'}
-            </Text>
-          </Descriptions.Item>
-        </Descriptions>
-      </StyledCard>
-    </PageContainer>
+        {/* User Information */}
+        <Col xs={24} md={16}>
+          <Card title={<><UserOutlined /> User Information</>} style={{ marginBottom: '24px' }}>
+            <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
+              <Descriptions.Item 
+                label={<><UserOutlined /> Full Name</>}
+                span={2}
+              >
+                <Text strong>{user.name || 'N/A'}</Text>
+              </Descriptions.Item>
+
+              <Descriptions.Item 
+                label={<><MailOutlined /> Email Address</>}
+                span={2}
+              >
+                <Text code>{user.email || 'N/A'}</Text>
+              </Descriptions.Item>
+
+              <Descriptions.Item 
+                label={<><TeamOutlined /> Role</>}
+              >
+                <Tag color={getRoleColor(user.role)}>
+                  {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Unknown'}
+                </Tag>
+              </Descriptions.Item>
+
+              <Descriptions.Item 
+                label={<><ClockCircleOutlined /> Status</>}
+              >
+                <Tag color="green">Active</Tag>
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+
+          {/* Timeline Information */}
+          <Card title={<><CalendarOutlined /> Timeline Information</>}>
+            <Descriptions column={{ xs: 1, sm: 2 }} bordered size="small">
+              <Descriptions.Item 
+                label="Account Created"
+              >
+                <Space>
+                  <CalendarOutlined />
+                  <Text>{formatDate(user.createdAt)}</Text>
+                </Space>
+              </Descriptions.Item>
+
+              <Descriptions.Item 
+                label="Last Updated"
+              >
+                <Space>
+                  <ClockCircleOutlined />
+                  <Text>{formatDate(user.updatedAt)}</Text>
+                </Space>
+              </Descriptions.Item>
+
+              <Descriptions.Item 
+                label="Account Age"
+                span={2}
+              >
+                {user.createdAt ? (
+                  <Text>
+                    {Math.floor((new Date() - new Date(user.createdAt)) / (1000 * 60 * 60 * 24))} days
+                  </Text>
+                ) : (
+                  <Text type="secondary">N/A</Text>
+                )}
+              </Descriptions.Item>
+            </Descriptions>
+          </Card>
+        </Col>
+      </Row>
+
+      {/* Additional Information */}
+      <Row gutter={[24, 24]} style={{ marginTop: '24px' }}>
+        <Col xs={24}>
+          <Card title="System Information" size="small">
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={8}>
+                <div style={{ textAlign: 'center' }}>
+                  <Title level={3} style={{ margin: 0, color: '#1890ff' }}>
+                    {user.role || 'N/A'}
+                  </Title>
+                  <Text type="secondary">User Role</Text>
+                </div>
+              </Col>
+              <Col xs={24} sm={8}>
+                <div style={{ textAlign: 'center' }}>
+                  <Title level={3} style={{ margin: 0, color: '#52c41a' }}>
+                    Active
+                  </Title>
+                  <Text type="secondary">Account Status</Text>
+                </div>
+              </Col>
+              <Col xs={24} sm={8}>
+                <div style={{ textAlign: 'center' }}>
+                  <Title level={3} style={{ margin: 0, color: '#faad14' }}>
+                    {user.createdAt ? new Date(user.createdAt).getFullYear() : 'N/A'}
+                  </Title>
+                  <Text type="secondary">Member Since</Text>
+                </div>
+              </Col>
+            </Row>
+          </Card>
+        </Col>
+      </Row>
+    </div>
   );
 }
 

@@ -160,7 +160,7 @@ function AdminCreateUser() {
 
   // Handle row click to navigate to user details
   const handleRowClick = (record) => {
-    navigate(`/user/${record._id}`);
+    navigate(`/user/${record.id || record._id}`);
   };
 
   return (
@@ -244,7 +244,7 @@ function AdminCreateUser() {
             <Table
               columns={columns}
               dataSource={users}
-              rowKey="_id"
+              rowKey={(record) => record.id || record._id}
               loading={loading}
               onRow={(record) => ({
                 onClick: () => handleRowClick(record),

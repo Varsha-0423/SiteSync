@@ -32,7 +32,7 @@ router.post('/bulk-upload',
 // Single user operations
 router.route('/:id')
   .get(protect, (req, res, next) => {
-    // Allow admins to view any user, supervisors can only view workers
+    // Allow both admins and supervisors to view user details
     if (req.user.role === 'admin' || req.user.role === 'supervisor') {
       return getUserById(req, res, next);
     }
