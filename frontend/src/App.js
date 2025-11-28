@@ -70,15 +70,23 @@ function AppContent() {
           {/* Protected routes */}
           {/* Admin Routes */}
           <Route 
-            path="/admin/dashboard" 
+            path="/admin" 
             element={
               <ProtectedRoute allowedRoles={['admin']}>
-                <AdminLayout>
-                  <Dashboard />
-                </AdminLayout>
+                <AdminLayout />
               </ProtectedRoute>
-            } 
-          />
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="users/:userId" element={<UserDetails />} />
+            <Route path="create-user" element={<AdminCreateUser />} />
+            <Route path="upload-excel" element={<AdminUploadExcel />} />
+            <Route path="assign-tasks" element={<TaskAssignment />} />
+            <Route path="task-scheduler" element={<TaskScheduler />} />
+            <Route path="tasks/:taskId" element={<TaskDetail />} />
+            <Route path="*" element={<Navigate to="dashboard" replace />} />
+          </Route>
           
           {/* Supervisor Routes with worker functionality */}
           <Route 

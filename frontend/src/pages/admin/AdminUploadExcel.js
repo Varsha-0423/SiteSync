@@ -183,16 +183,70 @@ function AdminUploadExcel() {
 
   const workerColumns = [
     {
-      title: 'Name',
+      title: 'Code',
+      dataIndex: 'code',
+      key: 'code',
+      render: (code) => code || '-',
+    },
+    {
+      title: 'Emp Name',
       dataIndex: 'name',
       key: 'name',
       render: (name) => name || '-',
     },
     {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'email',
-      render: (email) => email || '-',
+      title: 'Division',
+      dataIndex: 'division',
+      key: 'division',
+      render: (division) => division || '-',
+    },
+    {
+      title: 'Payroll Month',
+      dataIndex: 'payrollMonth',
+      key: 'payrollMonth',
+      render: (month) => month || '-',
+    },
+    {
+      title: 'Designation',
+      dataIndex: 'designation',
+      key: 'designation',
+      render: (designation) => designation || '-',
+    },
+    {
+      title: 'Job',
+      dataIndex: 'job',
+      key: 'job',
+      render: (job) => job || '-',
+    },
+    {
+      title: 'Days Attended',
+      dataIndex: 'daysAttended',
+      key: 'daysAttended',
+      render: (days) => days || '-',
+    },
+    {
+      title: 'OT Hours',
+      dataIndex: 'otHours',
+      key: 'otHours',
+      render: (hours) => hours || '-',
+    },
+    {
+      title: 'Net Salary',
+      dataIndex: 'netSalary',
+      key: 'netSalary',
+      render: (salary) => salary || '-',
+    },
+    {
+      title: 'Fixed Cost',
+      dataIndex: 'fixedCost',
+      key: 'fixedCost',
+      render: (cost) => cost || '-',
+    },
+    {
+      title: 'Total Cost',
+      dataIndex: 'totalCost',
+      key: 'totalCost',
+      render: (total) => total || '-',
     },
     {
       title: 'Role',

@@ -1,10 +1,48 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, Descriptions, Button, Spin, message, Typography } from "antd";
-import { ArrowLeftOutlined } from "@ant-design/icons";
+import { Card, Descriptions, Button, Spin, message, Typography, Divider, Tag } from "antd";
+import { 
+  ArrowLeftOutlined, 
+  UserOutlined, 
+  MailOutlined, 
+  IdcardOutlined,
+  BankOutlined,
+  CalendarOutlined,
+  CrownOutlined,
+  ToolOutlined,
+  ClockCircleOutlined,
+  DollarOutlined,
+  CalculatorOutlined
+} from "@ant-design/icons";
 import api from "../../api";
 
 const { Title, Text } = Typography;
+
+// Styled components
+const PageContainer = ({ children }) => (
+  <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    {children}
+  </div>
+);
+
+const SectionTitle = ({ children }) => (
+  <Divider orientation="left" style={{ fontSize: '18px', fontWeight: '500', margin: '24px 0 16px 0' }}>
+    {children}
+  </Divider>
+);
+
+const StyledCard = ({ children, ...props }) => (
+  <Card 
+    {...props} 
+    style={{ 
+      borderRadius: '8px',
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      marginBottom: '24px'
+    }}
+  >
+    {children}
+  </Card>
+);
 
 function UserDetails() {
   const { userId } = useParams();
@@ -13,20 +51,23 @@ function UserDetails() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('Fetching user with ID:', userId); // Debug log
     fetchUserDetails();
   }, [userId]);
 
   const fetchUserDetails = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/users/${userId}`, {
-        withCredentials: true
-      });
+      setUser(null);
+      
+      console.log(`Making API call to: /users/${userId}`); // Debug log
+      const response = await api.get(`/users/${userId}`);
+      console.log('API Response:', response.data); // Debug log
 
       if (response.data && response.data.success) {
         setUser(response.data.data);
       } else {
-        throw new Error("Failed to fetch user details");
+        throw new Error(response.data?.message || "Failed to fetch user details");
       }
     } catch (error) {
       console.error("Error fetching user details:", error);
@@ -34,108 +75,170 @@ function UserDetails() {
                          error.message || 
                          'Failed to fetch user details. Please try again.';
       message.error(errorMessage);
-      setUser(null);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: "center", padding: "50px" }}>
-        <Spin size="large" tip="Loading worker details..." />
-      </div>
-    );
-  }
-
   if (!user) {
     return (
-      <div style={{ padding: "24px" }}>
-        <Button
-          icon={<ArrowLeftOutlined />}
-          onClick={() => navigate("/admin/create-user")}
-          style={{ marginBottom: "20px" }}
+      <PageContainer>
+        <Button 
+          type="link" 
+          icon={<ArrowLeftOutlined />} 
+          onClick={() => navigate(-1)}
+          style={{ marginBottom: '16px' }}
         >
-          Back
+          Back to Users
         </Button>
-        <Card>
-          <Title level={4} type="secondary">Worker Not Found</Title>
-          <Text>The worker details cannot be loaded.</Text>
-        </Card>
-      </div>
+        <StyledCard>
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <Title level={4} style={{ color: '#ff4d4f' }}>Worker Not Found</Title>
+            <p>We couldn't find the worker you're looking for.</p>
+            <Button 
+              type="primary" 
+              onClick={() => navigate(-1)}
+              style={{ marginTop: '16px' }}
+            >
+              Return to Users List
+            </Button>
+          </div>
+        </StyledCard>
+      </PageContainer>
     );
   }
 
+  const renderStatusTag = (role) => {
+    let color = 'default';
+    switch(role) {
+      case 'admin':
+        color = 'red';
+        break;
+      case 'supervisor':
+        color = 'blue';
+        break;
+      case 'worker':
+        color = 'green';
+        break;
+      default:
+        color = 'default';
+    }
+    return (
+      <Tag color={color} style={{ textTransform: 'capitalize' }}>
+        {role}
+      </Tag>
+    );
+  };
+
   return (
-    <div style={{ padding: "24px" }}>
-      <Button
-        icon={<ArrowLeftOutlined />}
-        onClick={() => navigate("/admin/create-user")}
-        style={{ marginBottom: "20px" }}
+    <PageContainer>
+      <Button 
+        type="link" 
+        icon={<ArrowLeftOutlined />} 
+        onClick={() => navigate(-1)}
+        style={{ marginBottom: '16px' }}
       >
-        Back to List
+        Back to Users
       </Button>
-
-      <Card title="Worker Payroll Details" bordered>
-        <Descriptions bordered column={1} size="middle">
-          <Descriptions.Item label="Employee ID">
-            {user._id || "N/A"}
+      
+      <StyledCard 
+        title={
+          <>
+            <UserOutlined style={{ marginRight: '8px' }} />
+            Worker Details
+          </>
+        }
+        loading={loading}
+      >
+        <SectionTitle>
+          <IdcardOutlined style={{ marginRight: '8px' }} />
+          Personal Information
+        </SectionTitle>
+        <Descriptions bordered column={{ xs: 1, md: 2 }}>
+          <Descriptions.Item label={
+            <span><UserOutlined style={{ marginRight: '8px' }} />Full Name</span>
+          }>
+            {user.name || '-'}
           </Descriptions.Item>
-
-          <Descriptions.Item label="Name">
-            {user.name || "N/A"}
+          <Descriptions.Item label={
+            <span><MailOutlined style={{ marginRight: '8px' }} />Email</span>
+          }>
+            {user.email || '-'}
           </Descriptions.Item>
-
-          <Descriptions.Item label="Email">
-            {user.email || "N/A"}
+          <Descriptions.Item label={
+            <span><IdcardOutlined style={{ marginRight: '8px' }} />Employee Code</span>
+          }>
+            {user.code || '-'}
           </Descriptions.Item>
-
-          <Descriptions.Item label="Role">
-            {user.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "N/A"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="Code">
-            {user.code || "N/A"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="Division">
-            {user.division || "N/A"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="Payroll Month">
-            {user.payrollMonth || "N/A"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="Designation">
-            {user.designation || "N/A"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="Job">
-            {user.job || "N/A"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="Days Attended">
-            {user.daysAttended || 0}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="OT Hours">
-            {user.otHours || 0}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="Net Salary">
-            {user.netSalary ? `$${Number(user.netSalary).toFixed(2)}` : "$0.00"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="Fixed Cost">
-            {user.fixedCost ? `$${Number(user.fixedCost).toFixed(2)}` : "$0.00"}
-          </Descriptions.Item>
-
-          <Descriptions.Item label="Total Cost">
-            {user.totalCost ? `$${Number(user.totalCost).toFixed(2)}` : "$0.00"}
+          <Descriptions.Item label={
+            <span><CrownOutlined style={{ marginRight: '8px' }} />Role</span>
+          }>
+            {renderStatusTag(user.role)}
           </Descriptions.Item>
         </Descriptions>
-      </Card>
-    </div>
+
+        <SectionTitle>
+          <BankOutlined style={{ marginRight: '8px' }} />
+          Work Information
+        </SectionTitle>
+        <Descriptions bordered column={{ xs: 1, md: 2 }}>
+          <Descriptions.Item label={
+            <span><BankOutlined style={{ marginRight: '8px' }} />Division</span>
+          }>
+            {user.division || '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label={
+            <span><CalendarOutlined style={{ marginRight: '8px' }} />Payroll Month</span>
+          }>
+            {user.payrollMonth || '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label={
+            <span><CrownOutlined style={{ marginRight: '8px' }} />Designation</span>
+          }>
+            {user.designation || '-'}
+          </Descriptions.Item>
+          <Descriptions.Item label={
+            <span><ToolOutlined style={{ marginRight: '8px' }} />Job</span>
+          }>
+            {user.job || '-'}
+          </Descriptions.Item>
+        </Descriptions>
+
+        <SectionTitle>
+          <CalculatorOutlined style={{ marginRight: '8px' }} />
+          Attendance & Payroll
+        </SectionTitle>
+        <Descriptions bordered column={{ xs: 1, md: 2 }}>
+          <Descriptions.Item label={
+            <span><ClockCircleOutlined style={{ marginRight: '8px' }} />Days Attended</span>
+          }>
+            {user.daysAttended || '0'} days
+          </Descriptions.Item>
+          <Descriptions.Item label={
+            <span><ClockCircleOutlined style={{ marginRight: '8px' }} />OT Hours</span>
+          }>
+            {user.otHours || '0'} hours
+          </Descriptions.Item>
+          <Descriptions.Item label={
+            <span><DollarOutlined style={{ marginRight: '8px' }} />Net Salary</span>
+          }>
+            {user.netSalary ? `$${Number(user.netSalary).toFixed(2)}` : '$0.00'}
+          </Descriptions.Item>
+          <Descriptions.Item label={
+            <span><DollarOutlined style={{ marginRight: '8px' }} />Fixed Cost</span>
+          }>
+            {user.fixedCost ? `$${Number(user.fixedCost).toFixed(2)}` : '$0.00'}
+          </Descriptions.Item>
+          <Descriptions.Item label={
+            <span><DollarOutlined style={{ marginRight: '8px' }} />Total Cost</span>
+          } span={2}>
+            <Text strong style={{ color: '#1890ff', fontSize: '16px' }}>
+              {user.totalCost ? `$${Number(user.totalCost).toFixed(2)}` : '$0.00'}
+            </Text>
+          </Descriptions.Item>
+        </Descriptions>
+      </StyledCard>
+    </PageContainer>
   );
 }
 

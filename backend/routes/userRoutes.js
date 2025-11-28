@@ -31,7 +31,13 @@ router.post('/bulk-upload',
 
 // Single user operations
 router.route('/:id')
-  .get(protect, admin, getUserById)
+  .get(protect, (req, res, next) => {
+    // Allow admins to view any user, supervisors can only view workers
+    if (req.user.role === 'admin' || req.user.role === 'supervisor') {
+      return getUserById(req, res, next);
+    }
+    return res.status(403).json({ message: 'Not authorized' });
+  })
   .put(protect, admin, updateUser)
   .delete(protect, admin, deleteUser);
 

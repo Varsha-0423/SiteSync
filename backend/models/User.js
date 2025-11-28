@@ -26,8 +26,59 @@ const userSchema = new mongoose.Schema({
   },
   role: { 
     type: String, 
-    enum: ["admin", "supervisor","worker"], 
-    default: "supervisor" 
+    enum: ["admin", "supervisor", "worker"], 
+    default: "worker" 
+  },
+  code: {
+    type: String,
+    required: [true, 'Please add an employee code'],
+    unique: true,
+    trim: true
+  },
+  division: {
+    type: String,
+    required: [true, 'Please add a division'],
+    trim: true
+  },
+  payrollMonth: {
+    type: String,
+    required: [true, 'Please add a payroll month'],
+    trim: true
+  },
+  designation: {
+    type: String,
+    required: [true, 'Please add a designation'],
+    trim: true
+  },
+  job: {
+    type: String,
+    required: [true, 'Please add a job'],
+    trim: true
+  },
+  daysAttended: {
+    type: Number,
+    required: [true, 'Please add days attended'],
+    min: [0, 'Days attended cannot be negative']
+  },
+  otHours: {
+    type: Number,
+    required: [true, 'Please add OT hours'],
+    min: [0, 'OT hours cannot be negative']
+  },
+  netSalary: {
+    type: Number,
+    required: [true, 'Please add net salary'],
+    min: [0, 'Net salary cannot be negative']
+  },
+  fixedCost: {
+    type: Number,
+    required: [true, 'Please add fixed cost'],
+    min: [0, 'Fixed cost cannot be negative']
+  },
+  totalCost: {
+    type: Number,
+    required: [true, 'Please add total cost'],
+    min: [0, 'Total cost cannot be negative']
   }
 }, { 
   timestamps: true,
