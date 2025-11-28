@@ -10,12 +10,8 @@ function TaskScheduler() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [deadlineDate, setDeadlineDate] = useState('');
   const [supervisors, setSupervisors] = useState([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState('');
-  const [dateError, setDateError] = useState('');
-  const [deadlineError, setDeadlineError] = useState('');
   const [supervisorError, setSupervisorError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [tasksError, setTasksError] = useState('');
@@ -180,22 +176,9 @@ function TaskScheduler() {
 
   const handleScheduleConfirm = async () => {
     let valid = true;
-    setDateError('');
-    setDeadlineError('');
     setSupervisorError('');
     setTasksError('');
 
-    if (!selectedDate) {
-      setDateError('Start date is required');
-      valid = false;
-    }
-    if (!deadlineDate) {
-      setDeadlineError('Deadline is required');
-      valid = false;
-    } else if (new Date(deadlineDate) <= new Date(selectedDate)) {
-      setDeadlineError('Deadline must be after start date');
-      valid = false;
-    }
     if (!selectedSupervisor) {
       setSupervisorError('Supervisor is required');
       valid = false;
@@ -210,8 +193,6 @@ function TaskScheduler() {
       setLoading(true);
       await api.put('/tasks/update-today', {
         taskIds: selectedTaskIds,
-        date: selectedDate,
-        deadline: deadlineDate,
         supervisorId: selectedSupervisor
       });
       await fetchTodayTasks();
@@ -490,52 +471,8 @@ function TaskScheduler() {
               &times;
             </span>
             <h3 style={{ marginTop: 0 }}>Schedule Tasks</h3>
-            <p>Select a date and supervisor for the tasks:</p>
-            {/* Date, Deadline and Supervisor selection in a row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
-              <div>
-                <label>
-                  Start Date:&nbsp;
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={e => setSelectedDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    style={{
-                      padding: '6px',
-                      borderRadius: '4px',
-                      border: dateError ? '2px solid red' : '1px solid #ccc',
-                      width: '100%',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </label>
-                {dateError && (
-                  <div style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{dateError}</div>
-                )}
-              </div>
-              <div>
-                <label>
-                  Deadline:&nbsp;
-                  <input
-                    type="date"
-                    value={deadlineDate}
-                    onChange={e => setDeadlineDate(e.target.value)}
-                    min={selectedDate || new Date().toISOString().split('T')[0]}
-                    style={{
-                      padding: '6px',
-                      borderRadius: '4px',
-                      border: deadlineError ? '2px solid red' : '1px solid #ccc',
-                      width: '100%',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </label>
-                {deadlineError && (
-                  <div style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{deadlineError}</div>
-                )}
-              </div>
-            </div>
+            <p>Select a supervisor for the tasks:</p>
+            {/* Supervisor selection */}
             <div style={{ marginBottom: '15px' }}>
               <div>
                 <label style={{ marginLeft: 'auto' }}>

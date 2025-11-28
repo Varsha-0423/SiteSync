@@ -73,13 +73,21 @@ exports.getUsers = async (req, res) => {
 
 // @desc    Get single user by ID
 // @route   GET /api/users/:id
-// @access  Private/Admin
+// @access  Private/Admin/Supervisor
 exports.getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    // If the requester is a supervisor, they can only view workers
+    if (req.user.role === 'supervisor' && user.role !== 'worker') {
+      return res.status(403).json({ 
+        success: false,
+        message: 'Not authorized to view this user' 
+      });
     }
     
     res.json({
@@ -88,7 +96,16 @@ exports.getUserById = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching user:', error);
-    res.status(500).json({ message: 'Server error fetching user' });
+    if (error.kind === 'ObjectId') {
+      return res.status(404).json({ 
+        success: false,
+        message: 'User not found' 
+      });
+    }
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error fetching user' 
+    });
   }
 };
 

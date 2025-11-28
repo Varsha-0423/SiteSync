@@ -413,7 +413,6 @@ const uploadExcel = async (req, res) => {
 
     const createdTasks = [];
     const errors = [];
-    const validPriorities = ['low', 'medium', 'high'];
     
     // Month name to number mapping
     const monthMap = {
@@ -423,70 +422,69 @@ const uploadExcel = async (req, res) => {
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
-      const rowNum = i + 2; // +2 because Excel is 1-indexed and we have a header row
+      const rowNum = i + 2;
       
       try {
-        // Map Excel columns to task fields
-        const activityId = row['Substation - Activity ID'] || '';
-        const activityName = row['Activity Name'] || '';
-        const duration = row['Duration'] || '';
-        const revisedStart = row['Revised Start'] || '';
-        const revisedFinish = row['Revised Finish'] || '';
-        const remarks = row['Remarks'] || '';
+        const activityId = row['activityId'] || '';
+        const activityName = row['activityName'] || '';
+        const startDate = row['startDate'] || '';
+        const endDate = row['endDate'] || '';
+        const remarks = row['remarks'] || '';
         
         // Check required fields
-        if (!activityId || !activityName || !revisedStart || !revisedFinish) {
-          throw new Error('Missing required fields. Ensure all columns are filled.');
+        if (!activityId || !activityName || !startDate || !endDate) {
+          throw new Error('Missing required fields: activityId, activityName, startDate, or endDate');
         }
 
-        // Parse dates from DD-Mon-YY format (e.g., 25-Oct-25)
+        // Parse dates from DD-Mon-YY format or Excel serial number
         const parseExcelDate = (dateStr) => {
           if (!dateStr) return null;
           
-          // Handle DD-Mon-YY format (e.g., 25-Oct-25)
+          // Handle Excel serial date numbers
+          if (typeof dateStr === 'number') {
+            const excelEpoch = new Date(1899, 11, 30);
+            return new Date(excelEpoch.getTime() + dateStr * 86400000);
+          }
+          
+          // Handle DD-Mon-YY format
           const excelDateMatch = String(dateStr).match(/^(\d{1,2})-(\w{3})-(\d{2})$/);
           if (excelDateMatch) {
             const [, day, monthStr, yearShort] = excelDateMatch;
             const month = monthMap[monthStr];
-            const year = 2000 + parseInt(yearShort, 10); // Convert YY to YYYY
+            if (month === undefined) {
+              throw new Error(`Invalid month: ${monthStr}`);
+            }
+            const year = 2000 + parseInt(yearShort, 10);
             return new Date(year, month, parseInt(day, 10));
           }
           
-          // Fallback for other date formats if needed
-          return new Date(dateStr) || null;
+          return new Date(dateStr);
         };
         
-        // Set default priority to medium
-        const priority = 'medium';
+        const parsedStartDate = parseExcelDate(startDate);
+        const parsedEndDate = parseExcelDate(endDate);
         
-        // Parse dates
-        const startDate = parseExcelDate(revisedStart);
-        const endDate = parseExcelDate(revisedFinish);
-        
-        if (!startDate || isNaN(startDate.getTime())) {
-          throw new Error(`Invalid start date format: ${revisedStart}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
+        if (!parsedStartDate || isNaN(parsedStartDate.getTime())) {
+          throw new Error(`Invalid start date format: ${startDate}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
         }
         
-        if (!endDate || isNaN(endDate.getTime())) {
-          throw new Error(`Invalid end date format: ${revisedFinish}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
+        if (!parsedEndDate || isNaN(parsedEndDate.getTime())) {
+          throw new Error(`Invalid end date format: ${endDate}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
         }
         
-        // Validate that endDate is not before startDate
-        if (endDate < startDate) {
-          throw new Error(`End date (${revisedFinish}) cannot be before start date (${revisedStart})`);
+        if (parsedEndDate < parsedStartDate) {
+          throw new Error(`End date cannot be before start date`);
         }
 
-        // Prepare task data
         const taskData = {
           activityId,
           taskName: activityName,
-          description: activityName, // Using activity name as description
-          duration,
-          remarks,
-          date: startDate, // Using start date as the task date
-          startDate,
-          endDate,
-          priority,
+          description: activityName,
+          remarks: remarks || 'N/A',
+          date: parsedStartDate,
+          startDate: parsedStartDate,
+          endDate: parsedEndDate,
+          priority: 'medium',
           status: 'pending',
           createdBy: req.user._id
         };
@@ -499,7 +497,6 @@ const uploadExcel = async (req, res) => {
       }
     }
 
-    // Clean up uploaded file
     fs.unlinkSync(filePath);
 
     const response = {
@@ -519,7 +516,6 @@ const uploadExcel = async (req, res) => {
   } catch (error) {
     console.error('Error uploading Excel:', error);
     
-    // Clean up uploaded file on error
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
     }

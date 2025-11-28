@@ -151,29 +151,13 @@ function AdminUploadExcel() {
       title: 'Activity ID',
       dataIndex: 'activityId',
       key: 'activityId',
-      width: 200,
-      ellipsis: true,
+      width: 250,
     },
     {
-      title: 'Task Name',
+      title: 'Activity Name',
       dataIndex: 'taskName',
       key: 'taskName',
-      width: 200,
-      ellipsis: true,
-    },
-    {
-      title: 'Description',
-      dataIndex: 'description',
-      key: 'description',
-      width: 200,
-      ellipsis: true,
-    },
-    {
-      title: 'Duration',
-      dataIndex: 'duration',
-      key: 'duration',
-      width: 100,
-      align: 'center',
+      width: 250,
     },
     {
       title: 'Start Date',
@@ -193,24 +177,7 @@ function AdminUploadExcel() {
       title: 'Remarks',
       dataIndex: 'remarks',
       key: 'remarks',
-      width: 150,
-      ellipsis: true,
-    },
-    {
-      title: 'Priority',
-      dataIndex: 'priority',
-      key: 'priority',
-      width: 100,
-      render: (priority) => priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'Medium',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      width: 120,
-      render: (status) => status ? status.split('-').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1)
-      ).join(' ') : 'Pending',
+      width: 200,
     },
   ];
 
@@ -255,39 +222,21 @@ function AdminUploadExcel() {
     />
   );
 
-  const tableHeaderStyle = {
-    padding: '12px',
-    textAlign: 'left',
-    borderBottom: '1px solid #ddd',
-    fontWeight: 'bold',
-    backgroundColor: '#f1f1f1',
-  };
-
-  const tableCellStyle = {
-    border: '1px solid #ddd',
-    padding: '10px',
-    verticalAlign: 'top'
-  };
-
   const createTaskTemplate = () => {
     const templateData = [
       {
-        taskName: 'Sample Task 1',
-        description: 'This is a sample task',
-        date: new Date().toISOString().split('T')[0],
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        priority: 'medium',
-        status: 'pending'
+        activityId: 'PI-CN-P1-SS-Sup-1080',
+        activityName: 'Trench Works',
+        startDate: '25-Oct-25',
+        endDate: '07-Nov-25',
+        remarks: 'na'
       },
       {
-        taskName: 'Sample Task 2',
-        description: 'Another sample task',
-        date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        startDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 9 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        priority: 'high',
-        status: 'pending'
+        activityId: 'PI-CN-P1-SS-Sup-1081',
+        activityName: 'Cable Installation',
+        startDate: '08-Nov-25',
+        endDate: '15-Nov-25',
+        remarks: 'Priority task'
       }
     ];
 
@@ -331,13 +280,13 @@ function AdminUploadExcel() {
         <div style={{ marginTop: '20px', backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '4px' }}>
           <h4>Excel File Requirements:</h4>
           <ul>
-            <li>Required columns: <strong>taskName, description, date, priority, startDate, endDate</strong></li>
-            <li>Date format: YYYY-MM-DD or MM/DD/YYYY</li>
-            <li>Priority must be one of: low, medium, high</li>
+            <li>Required columns: <strong>activityId, activityName, startDate, endDate</strong></li>
+            <li>Optional column: <strong>remarks</strong></li>
+            <li>Date format: DD-Mon-YY (e.g., 25-Oct-25)</li>
           </ul>
-          <p style={{ marginTop: '10px' }}>
-            <a href="/templates/task-import-template.xlsx" download>Download Template</a>
-          </p>
+          <Button type="link" onClick={createTaskTemplate} style={{ padding: 0 }}>
+            Download Template
+          </Button>
         </div>
       )}
     </div>

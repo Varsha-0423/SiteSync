@@ -210,27 +210,18 @@ function TaskDetail() {
               <h3>Task Information</h3>
               
               <div className="detail-row">
-                <span className="label">Task Status:</span>
-                <span className={`status-${task.status || 'pending'}`}>
-                  {task.status ? task.status.charAt(0).toUpperCase() + task.status.slice(1) : 'Pending'}
-                </span>
+                <span className="label">Activity ID:</span>
+                <span>{task.activityId || 'N/A'}</span>
               </div>
               
               <div className="detail-row">
-                <span className="label">Task Name:</span>
+                <span className="label">Activity Name:</span>
                 <span>{task.taskName || 'N/A'}</span>
               </div>
               
-              {task.description && (
-                <div className="detail-row">
-                  <span className="label">Description:</span>
-                  <span>{task.description}</span>
-                </div>
-              )}
-              
               <div className="detail-row">
-                <span className="label">Date:</span>
-                <span>{formatDate(task.date) || 'Not set'}</span>
+                <span className="label">Remarks:</span>
+                <span>{task.remarks || 'N/A'}</span>
               </div>
               
               <div className="detail-row">
@@ -239,16 +230,14 @@ function TaskDetail() {
               </div>
               
               <div className="detail-row">
-                <span className="label">Deadline:</span>
-                <span style={{ color: isDeadlinePassed(task.deadline) ? '#ff4d4f' : 'inherit' }}>
-                  {formatDate(task.deadline) || 'Not set'}
-                </span>
+                <span className="label">End Date:</span>
+                <span>{formatDate(task.endDate) || 'Not set'}</span>
               </div>
               
               <div className="detail-row">
-                <span className="label">Priority:</span>
-                <span className={`priority-${task.priority || 'medium'}`}>
-                  {task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'Medium'}
+                <span className="label">Status:</span>
+                <span className={`status-${task.status || 'pending'}`}>
+                  {task.status ? task.status.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Pending'}
                 </span>
               </div>
               
@@ -428,58 +417,99 @@ function TaskDetail() {
           </div>
         )}
       </div>
-
       <style jsx>{`
         .task-detail-container {
           max-width: 1000px;
           margin: 0 auto;
+          padding: 24px;
+          background: #fff;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .detail-section {
+          background: #fafafa;
           padding: 20px;
+          border-radius: 6px;
+          margin-bottom: 24px;
+          border: 1px solid #f0f0f0;
         }
-        .task-header {
-          margin-bottom: 20px;
-          padding-bottom: 10px;
-          border-bottom: 1px solid #eee;
+        
+        .detail-section h3 {
+          margin-top: 0;
+          margin-bottom: 16px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #f0f0f0;
+          color: #333;
         }
+        
+        .detail-row {
+          display: flex;
+          margin-bottom: 12px;
+          line-height: 1.5;
+          flex-wrap: wrap;
+        }
+        
+        .detail-row .label {
+          font-weight: 500;
+          color: #666;
+          min-width: 150px;
+          margin-right: 10px;
+        }
+        
+        .detail-row .value {
+          flex: 1;
+          word-break: break-word;
+        }
+        
+        .status-pending { color: #faad14; }
+        .status-completed { color: #52c41a; }
+        .status-on-schedule { color: #1890ff; }
+        .status-behind { color: #fa8c16; }
+        .status-ahead { color: #722ed1; }
+        
+        .priority-low { color: #52c41a; }
+        .priority-medium { color: #faad14; }
+        .priority-high { color: #f5222d; }
+        
         .tabs {
           display: flex;
-          margin-bottom: 20px;
-          border-bottom: 1px solid #ddd;
+          margin: 0 -24px 24px -24px;
+          padding: 0 24px;
+          border-bottom: 1px solid #e8e8e8;
         }
+        
         .tabs button {
-          padding: 10px 20px;
+          padding: 12px 24px;
           border: none;
           background: none;
           cursor: pointer;
-          font-size: 16px;
+          font-size: 15px;
+          font-weight: 500;
           color: #666;
           border-bottom: 2px solid transparent;
+          margin-right: 8px;
+          transition: all 0.3s ease;
+          position: relative;
+          bottom: -1px;
         }
+        
         .tabs button.active {
           color: #1890ff;
           border-bottom-color: #1890ff;
-          font-weight: 500;
+          font-weight: 600;
+          background-color: #f0f9ff;
         }
-        .tabs button:hover {
-          color: #40a9ff;
-        }
-        .detail-row {
-          margin-bottom: 15px;
-          display: flex;
-          gap: 15px;
-        }
-        .label {
-          font-weight: 500;
-          min-width: 120px;
-          color: #333;
-        }
+        
         .update-card {
-          background: #fff;
-          border: 1px solid #e8e8e8;
-          border-radius: 4px;
-          padding: 16px;
           margin-bottom: 16px;
+          padding: 16px;
+          border: 1px solid #f0f0f0;
+          border-radius: 4px;
+          background: #fff;
           box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
+        
         .update-header {
           display: flex;
           justify-content: space-between;
@@ -487,20 +517,24 @@ function TaskDetail() {
           font-size: 14px;
           color: #666;
         }
+        
         .update-status {
           margin: 8px 0;
           font-weight: 500;
         }
+        
         .update-text {
           margin: 12px 0;
           line-height: 1.5;
         }
+        
         .update-photos {
           display: flex;
           flex-wrap: wrap;
           gap: 10px;
           margin-top: 12px;
         }
+        
         .photo-thumbnail {
           width: 100px;
           height: 100px;
@@ -508,12 +542,20 @@ function TaskDetail() {
           overflow: hidden;
           border: 1px solid #eee;
           cursor: pointer;
+          transition: all 0.2s ease;
         }
+        
+        .photo-thumbnail:hover {
+          transform: scale(1.03);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
         .photo-thumbnail img {
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
+        
         .status-completed {
           color: #52c41a;
           font-weight: 500;
@@ -522,6 +564,7 @@ function TaskDetail() {
           background-color: #f6ffed;
           border: 1px solid #b7eb8f;
         }
+        
         .status-in-progress {
           color: #1890ff;
           font-weight: 500;
@@ -530,6 +573,7 @@ function TaskDetail() {
           background-color: #e6f7ff;
           border: 1px solid #91d5ff;
         }
+        
         .status-pending {
           color: #faad14;
           font-weight: 500;
@@ -538,6 +582,7 @@ function TaskDetail() {
           background-color: #fffbe6;
           border: 1px solid #ffe58f;
         }
+        
         .status-rejected {
           color: #ff4d4f;
           font-weight: 500;
@@ -546,16 +591,19 @@ function TaskDetail() {
           background-color: #fff2f0;
           border: 1px solid #ffccc7;
         }
+        
         .assigned-workers {
           margin-top: 20px;
           padding-top: 15px;
           border-top: 1px solid #eee;
         }
+        
         .assigned-workers ul {
           list-style: none;
           padding: 0;
           margin: 10px 0 0 0;
         }
+        
         .assigned-workers li {
           padding: 5px 0;
           border-bottom: 1px solid #f5f5f5;

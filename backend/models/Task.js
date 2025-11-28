@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
 
 const taskSchema = new mongoose.Schema({
+  activityId: {
+    type: String,
+    trim: true
+  },
   taskName: { 
     type: String, 
     required: [true, 'Task name is required'],
@@ -15,6 +19,11 @@ const taskSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  remarks: {
+    type: String,
+    trim: true,
+    default: 'N/A'
+  },
   date: { 
     type: Date, 
     required: [true, 'Task date is required'] 
@@ -23,13 +32,24 @@ const taskSchema = new mongoose.Schema({
     type: Date,
     validate: {
       validator: function(value) {
-        // Start date should be before or equal to deadline if both exist
-        if (this.deadline && value) {
-          return value <= this.deadline;
+        if (this.endDate && value) {
+          return value <= this.endDate;
         }
         return true;
       },
-      message: 'Start date must be before or equal to deadline'
+      message: 'Start date must be before or equal to end date'
+    }
+  },
+  endDate: {
+    type: Date,
+    validate: {
+      validator: function(value) {
+        if (this.startDate && value) {
+          return value >= this.startDate;
+        }
+        return true;
+      },
+      message: 'End date must be after or equal to start date'
     }
   },
   deadline: { 
@@ -110,7 +130,9 @@ const taskSchema = new mongoose.Schema({
 });
 
 // Indexes for better query performance
+taskSchema.index({ activityId: 1 });
 taskSchema.index({ startDate: 1 });
+taskSchema.index({ endDate: 1 });
 taskSchema.index({ deadline: 1 });
 taskSchema.index({ supervisor: 1 });
 taskSchema.index({ status: 1 });

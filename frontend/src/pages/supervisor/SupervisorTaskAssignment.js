@@ -270,13 +270,8 @@ function SupervisorTaskAssignment() {
                   <p style={{ margin: "0 0 10px 0", color: "#666" }}>
                     {task.description}
                   </p>
-                  <div style={{ fontSize: "13px", color: "#555", display: "flex", gap: "20px" }}>
+                  <div style={{ fontSize: "13px", color: "#555" }}>
                     <div>Schedule Date: {new Date(task.date).toLocaleDateString()}</div>
-                    {task.deadline ? (
-                      <div>Deadline Date: {new Date(task.deadline).toLocaleDateString()}</div>
-                    ) : (
-                      <div style={{ color: "#999", fontStyle: "italic" }}>Deadline Date: Not set</div>
-                    )}
                   </div>
                 </div>
 

@@ -32,8 +32,7 @@ function AdminCreateUser() {
     try {
       setLoading(true);
       const response = await api.get("/users");
-      // Exclude workers from the list
-      let filteredUsers = response.data.data.filter(user => user.role !== 'worker');
+      let filteredUsers = response.data.data;
       
       // Apply role filter
       if (roleFilter !== "all") {
@@ -193,9 +192,11 @@ function AdminCreateUser() {
                 placeholder="Select role"
                 value={formData.role}
                 onChange={(value) => setFormData({ ...formData, role: value })}
+                style={{ width: '100%' }}
               >
                 <Option value="admin">Admin</Option>
                 <Option value="supervisor">Supervisor</Option>
+                <Option value="worker">Worker</Option>
               </Select>
               <Button 
                 type="primary" 
@@ -226,6 +227,7 @@ function AdminCreateUser() {
                     <Option value="all">All Roles</Option>
                     <Option value="admin">Admin</Option>
                     <Option value="supervisor">Supervisor</Option>
+                    <Option value="worker">Worker</Option>
                   </Select>
                   <Input
                     placeholder="Search users..."
