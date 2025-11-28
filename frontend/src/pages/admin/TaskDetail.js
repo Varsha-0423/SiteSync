@@ -10,6 +10,7 @@ function TaskDetail() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('details');
   const [workReports, setWorkReports] = useState([]);
+  const [workers, setWorkers] = useState([]);
 
   useEffect(() => {
     const fetchTaskAndReports = async () => {
@@ -77,6 +78,18 @@ function TaskDetail() {
 
     fetchTaskAndReports();
   }, [taskId, navigate]);
+
+  useEffect(() => {
+    const fetchWorkers = async () => {
+      try {
+        const response = await api.get('/users?role=worker');
+        setWorkers(response.data.data || []);
+      } catch (error) {
+        console.error('Error fetching workers:', error);
+      }
+    };
+    fetchWorkers();
+  }, []);
 
   if (loading) return (
     <div style={{ 
@@ -320,9 +333,12 @@ function TaskDetail() {
               <div className="assigned-workers">
                 <h4>Assigned Workers:</h4>
                 <ul>
-                  {task.assignedWorkers.map(worker => (
-                    <li key={worker._id}>{worker.name || `Worker ${worker._id}`}</li>
-                  ))}
+                  {task.assignedWorkers.map((worker, index) => {
+                    const workerId = typeof worker === 'object' ? (worker._id || worker.id) : worker;
+                    const workerObj = workers.find(w => (w._id || w.id) === workerId);
+                    const workerName = typeof worker === 'object' ? worker.name : (workerObj?.name || `Worker ${workerId}`);
+                    return <li key={workerId}>{workerName}</li>;
+                  })}
                 </ul>
               </div>
             )}

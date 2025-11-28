@@ -32,7 +32,8 @@ function AdminCreateUser() {
     try {
       setLoading(true);
       const response = await api.get("/users");
-      let filteredUsers = response.data.data;
+      // Exclude workers from the list
+      let filteredUsers = response.data.data.filter(user => user.role !== 'worker');
       
       // Apply role filter
       if (roleFilter !== "all") {

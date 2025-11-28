@@ -386,11 +386,12 @@ const getDashboardStats = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
-    res.status(500).json({ message: 'Server error fetching dashboard stats' });
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error fetching dashboard statistics' 
+    });
   }
 };
-
-// @desc    Upload Excel file and create tasks
 // @route   POST /api/tasks/upload-excel
 // @access  Private/Admin
 const uploadExcel = async (req, res) => {
@@ -406,48 +407,115 @@ const uploadExcel = async (req, res) => {
     const data = XLSX.utils.sheet_to_json(worksheet);
 
     if (data.length === 0) {
+      fs.unlinkSync(filePath);
       return res.status(400).json({ message: 'Excel file is empty' });
     }
 
     const createdTasks = [];
     const errors = [];
+    const validPriorities = ['low', 'medium', 'high'];
+    
+    // Month name to number mapping
+    const monthMap = {
+      'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+      'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+    };
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
+      const rowNum = i + 2; // +2 because Excel is 1-indexed and we have a header row
+      
       try {
         // Map Excel columns to task fields
+        const activityId = row['Substation - Activity ID'] || '';
+        const activityName = row['Activity Name'] || '';
+        const duration = row['Duration'] || '';
+        const revisedStart = row['Revised Start'] || '';
+        const revisedFinish = row['Revised Finish'] || '';
+        const remarks = row['Remarks'] || '';
+        
+        // Check required fields
+        if (!activityId || !activityName || !revisedStart || !revisedFinish) {
+          throw new Error('Missing required fields. Ensure all columns are filled.');
+        }
+
+        // Parse dates from DD-Mon-YY format (e.g., 25-Oct-25)
+        const parseExcelDate = (dateStr) => {
+          if (!dateStr) return null;
+          
+          // Handle DD-Mon-YY format (e.g., 25-Oct-25)
+          const excelDateMatch = String(dateStr).match(/^(\d{1,2})-(\w{3})-(\d{2})$/);
+          if (excelDateMatch) {
+            const [, day, monthStr, yearShort] = excelDateMatch;
+            const month = monthMap[monthStr];
+            const year = 2000 + parseInt(yearShort, 10); // Convert YY to YYYY
+            return new Date(year, month, parseInt(day, 10));
+          }
+          
+          // Fallback for other date formats if needed
+          return new Date(dateStr) || null;
+        };
+        
+        // Set default priority to medium
+        const priority = 'medium';
+        
+        // Parse dates
+        const startDate = parseExcelDate(revisedStart);
+        const endDate = parseExcelDate(revisedFinish);
+        
+        if (!startDate || isNaN(startDate.getTime())) {
+          throw new Error(`Invalid start date format: ${revisedStart}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
+        }
+        
+        if (!endDate || isNaN(endDate.getTime())) {
+          throw new Error(`Invalid end date format: ${revisedFinish}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
+        }
+        
+        // Validate that endDate is not before startDate
+        if (endDate < startDate) {
+          throw new Error(`End date (${revisedFinish}) cannot be before start date (${revisedStart})`);
+        }
+
+        // Prepare task data
         const taskData = {
-          taskName: row['Task Name'] || row['taskName'] || row['Task'] || `Task ${i + 1}`,
-          taskTitle: row['Task Title'] || row['taskTitle'] || `Task ${i + 1}`,
-          description: row['Description'] || row['description'] || '',
-          date: row['Date'] || row['date'] || new Date(),
-          startDate: row['Start Date'] || row['startDate'],
-          deadline: row['Deadline'] || row['deadline'],
-          priority: (row['Priority'] || row['priority'] || 'medium').toLowerCase(),
-          status: (row['Status'] || row['status'] || 'pending').toLowerCase(),
-          supervisor: row['Supervisor'] || row['supervisor']
+          activityId,
+          taskName: activityName,
+          description: activityName, // Using activity name as description
+          duration,
+          remarks,
+          date: startDate, // Using start date as the task date
+          startDate,
+          endDate,
+          priority,
+          status: 'pending',
+          createdBy: req.user._id
         };
 
-        const task = await Task.create({
-          ...taskData,
-          createdBy: req.user._id
-        });
+        const task = await Task.create(taskData);
         createdTasks.push(task);
       } catch (error) {
-        console.error(`Error processing row ${i + 1}:`, error);
-        errors.push(`Row ${i + 1}: ${error.message}`);
+        console.error(`Error processing row ${rowNum}:`, error);
+        errors.push(`Row ${rowNum}: ${error.message}`);
       }
     }
 
     // Clean up uploaded file
     fs.unlinkSync(filePath);
 
-    res.status(201).json({
+    const response = {
       success: true,
-      message: `Successfully created ${createdTasks.length} tasks`,
-      data: createdTasks,
-      errors: errors.length > 0 ? errors : undefined
-    });
+      message: `Successfully created ${createdTasks.length} out of ${data.length} tasks`,
+      createdCount: createdTasks.length,
+      totalCount: data.length,
+      data: createdTasks
+    };
+
+    if (errors.length > 0) {
+      response.errors = errors;
+      response.errorCount = errors.length;
+    }
+
+    res.status(201).json(response);
   } catch (error) {
     console.error('Error uploading Excel:', error);
     
@@ -610,7 +678,6 @@ const updateTodayTasks = async (req, res) => {
 
 // Export all functions
 module.exports = {
-  getWorkerTasks,
   getTasks,
   createTask,
   getTaskById,

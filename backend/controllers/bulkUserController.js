@@ -1,5 +1,5 @@
 const xlsx = require('xlsx');
-const User = require('./userController');
+const User = require('../models/User');
 const bcrypt = require('bcryptjs');
 
 // Configure multer for file upload
@@ -46,7 +46,7 @@ exports.processBulkUpload = async (req, res) => {
     const data = xlsx.utils.sheet_to_json(worksheet);
 
     // Validate required columns
-    const requiredColumns = ['name', 'workerId', 'email', 'role'];
+    const requiredColumns = ['name', 'email', 'role'];
     const headers = Object.keys(data[0] || {});
     const missingColumns = requiredColumns.filter(col => !headers.includes(col));
 
@@ -63,6 +63,7 @@ exports.processBulkUpload = async (req, res) => {
       success: 0,
       errors: [],
     };
+    const createdUsers = [];
 
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -70,18 +71,10 @@ exports.processBulkUpload = async (req, res) => {
 
       try {
         // Check if user already exists
-        const existingUser = await User.findOne({ 
-          $or: [
-            { email: row.email },
-            { workerId: row.workerId }
-          ] 
-        });
+        const existingUser = await User.findOne({ email: row.email });
 
         if (existingUser) {
-          results.errors.push({
-            row: rowNumber,
-            message: `User with email ${row.email} or worker ID ${row.workerId} already exists`,
-          });
+          results.errors.push(`Row ${rowNumber}: User with email ${row.email} already exists`);
           continue;
         }
 
@@ -92,18 +85,20 @@ exports.processBulkUpload = async (req, res) => {
         const newUser = new User({
           name: row.name,
           email: row.email,
-          workerId: row.workerId,
           role: row.role.toLowerCase(),
           password: hashedPassword,
         });
 
         await newUser.save();
         results.success++;
-      } catch (error) {
-        results.errors.push({
-          row: rowNumber,
-          message: error.message || 'Error processing this row',
+        createdUsers.push({
+          _id: newUser._id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role
         });
+      } catch (error) {
+        results.errors.push(`Row ${rowNumber}: ${error.message || 'Error processing this row'}`);
       }
     }
 
@@ -113,8 +108,9 @@ exports.processBulkUpload = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Bulk upload completed',
-      results: results,
+      message: `Successfully uploaded ${results.success} out of ${results.total} users`,
+      data: createdUsers,
+      errors: results.errors,
     });
   } catch (error) {
     console.error('Bulk upload error:', error);
