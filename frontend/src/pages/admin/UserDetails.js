@@ -40,6 +40,11 @@ function UserDetails() {
     try {
       setLoading(true);
       console.log('Fetching user with ID:', userId);
+      
+      if (!userId || userId === 'undefined') {
+        throw new Error('Invalid user ID');
+      }
+      
       const response = await api.get(`/users/${userId}`);
       console.log('User details response:', response.data);
       

@@ -5,7 +5,6 @@ import { useAuth } from "../contexts/AuthContext";
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -16,24 +15,24 @@ function Login() {
     setError("");
 
     // Basic validation
-    if (!email || !password || !role) {
+    if (!email || !password) {
       setError('Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
     console.log('Attempting login with:', { 
-      email, 
-      role,
+      email,
       timestamp: new Date().toISOString() 
     });
 
     try {
-      const result = await login(email, password, role);
+      const result = await login(email, password);
       
-      if (result.success) {
-        // Navigate based on role
-        const redirectPath = `/${role}/dashboard`;
+      if (result.success || result.role) {
+        // Navigate based on role from server response
+        const userRole = result.role;
+        const redirectPath = `/${userRole}/dashboard`;
         console.log('Login successful, redirecting to:', redirectPath);
         navigate(redirectPath);
       } else {
@@ -110,24 +109,6 @@ function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-            </div>
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                Role
-              </label>
-              <select
-                id="role"
-                name="role"
-                required
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              >
-                <option value="">Select a role</option>
-                <option value="admin">Admin</option>
-                <option value="supervisor">Supervisor</option>
-                <option value="worker">Worker</option>
-              </select>
             </div>
           </div>
 

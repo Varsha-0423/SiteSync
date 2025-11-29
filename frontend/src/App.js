@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { Layout } from 'antd';
 import Login from "./pages/Login";
 import Dashboard from "./pages/admin/Dashboard";
 import AdminCreateUser from "./pages/admin/AdminCreateUser";
@@ -14,6 +15,7 @@ import SupervisorDashboard from "./pages/supervisor/SupervisorDashboard";
 import SupervisorLayout from "./pages/supervisor/SupervisorLayout";
 import SupervisorTaskAssignment from "./pages/supervisor/SupervisorTaskAssignment";
 import TaskDetail from "./pages/admin/TaskDetail";
+import ProfilePage from "./pages/ProfilePage";
 // import SubmitWork from "./pages/supervisor/tasks/SubmitWork";
 
 function App() {
@@ -68,17 +70,36 @@ function AppContent() {
           />
           
           {/* Protected routes */}
-          {/* Admin Routes */}
+          
+          {/* Profile Route - Accessible to all authenticated users */}
           <Route 
-            path="/admin/dashboard" 
+            path="/profile" 
             element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <AdminLayout>
-                  <Dashboard />
-                </AdminLayout>
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             } 
           />
+          
+          {/* Admin Routes */}
+          <Route 
+            path="/admin" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="users/:userId" element={<UserDetails />} />
+            <Route path="create-user" element={<AdminCreateUser />} />
+            <Route path="upload-excel" element={<AdminUploadExcel />} />
+            <Route path="assign-tasks" element={<TaskAssignment />} />
+            <Route path="task-scheduler" element={<TaskScheduler />} />
+            <Route path="tasks/:taskId" element={<TaskDetail />} />
+            <Route path="*" element={<Navigate to="dashboard" replace />} />
+          </Route>
           
           {/* Supervisor Routes with worker functionality */}
           <Route 

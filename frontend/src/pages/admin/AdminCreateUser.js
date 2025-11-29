@@ -160,7 +160,7 @@ function AdminCreateUser() {
 
   // Handle row click to navigate to user details
   const handleRowClick = (record) => {
-    navigate(`/user/${record._id}`);
+    navigate(`/user/${record.id || record._id}`);
   };
 
   return (
@@ -192,9 +192,11 @@ function AdminCreateUser() {
                 placeholder="Select role"
                 value={formData.role}
                 onChange={(value) => setFormData({ ...formData, role: value })}
+                style={{ width: '100%' }}
               >
                 <Option value="admin">Admin</Option>
                 <Option value="supervisor">Supervisor</Option>
+                <Option value="worker">Worker</Option>
               </Select>
               <Button 
                 type="primary" 
@@ -225,6 +227,7 @@ function AdminCreateUser() {
                     <Option value="all">All Roles</Option>
                     <Option value="admin">Admin</Option>
                     <Option value="supervisor">Supervisor</Option>
+                    <Option value="worker">Worker</Option>
                   </Select>
                   <Input
                     placeholder="Search users..."
@@ -241,7 +244,7 @@ function AdminCreateUser() {
             <Table
               columns={columns}
               dataSource={users}
-              rowKey="_id"
+              rowKey={(record) => record.id || record._id}
               loading={loading}
               onRow={(record) => ({
                 onClick: () => handleRowClick(record),

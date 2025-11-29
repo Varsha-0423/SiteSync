@@ -21,7 +21,10 @@ function SupervisorTaskAssignment() {
     try {
       setLoading(true);
       const response = await api.get("/tasks/supervisor-today");
-      setTasks(response.data.data || []);
+      const tasksData = response.data.data || [];
+      console.log('Fetched tasks with deadline:', tasksData);
+      console.log('First task deadlineDate:', tasksData[0]?.deadline);
+      setTasks(tasksData);
     } catch (error) {
       console.error("Error fetching today tasks:", error);
       setMessage("Error fetching today tasks");
@@ -32,110 +35,88 @@ function SupervisorTaskAssignment() {
 
   const fetchWorkers = async () => {
     try {
+      console.log('Fetching workers...');
       const response = await api.get("/users?role=worker");
       const workersData = response.data.data || [];
-      console.log('Fetched workers:', workersData);
+      
+      if (workersData.length === 0) {
+        console.warn('No workers found in the system');
+      } else {
+        console.log(`Fetched ${workersData.length} workers:`, workersData.map(w => ({
+          _id: w._id,
+          name: w.name,
+          email: w.email
+        })));
+      }
+      
       setWorkers(workersData);
+      return workersData;
     } catch (error) {
       console.error("Error fetching workers:", error);
+      setMessage('Error loading workers. Please refresh the page to try again.');
+      return [];
     }
   };
 
-  const handleAssignmentChange = async (taskId, workerIds) => {
+  const handleAssignmentChange = async (taskId, newWorkerIds) => {
+    const currentTask = tasks.find(t => t._id === taskId);
+    const currentWorkerIds = (currentTask?.assignedWorkers || [])
+      .map(w => typeof w === "object" && w._id ? w._id : w)
+      .filter(Boolean);
+
+    // Determine what changed
+    const addedWorkers = newWorkerIds.filter(id => !currentWorkerIds.includes(id));
+    const removedWorkers = currentWorkerIds.filter(id => !newWorkerIds.includes(id));
+
+    // If nothing changed, return
+    if (addedWorkers.length === 0 && removedWorkers.length === 0) {
+      return;
+    }
+
+    // Get worker names for confirmation
+    const getWorkerNames = (ids) => ids.map(id => 
+      workers.find(w => w._id === id)?.name || 'Unknown'
+    ).join(', ');
+
+    let confirmMessage = '';
+    if (addedWorkers.length > 0 && removedWorkers.length === 0) {
+      confirmMessage = `Would you like to assign ${getWorkerNames(addedWorkers)} to this task?`;
+    } else if (removedWorkers.length > 0 && addedWorkers.length === 0) {
+      confirmMessage = `Would you like to unassign ${getWorkerNames(removedWorkers)} from this task?`;
+    } else {
+      confirmMessage = `Update worker assignments?`;
+    }
+
+    if (!window.confirm(confirmMessage)) {
+      // Revert the UI by refreshing tasks
+      await fetchTodayTasks();
+      return;
+    }
+
     try {
       setLoading(true);
-      console.log('Raw workerIds:', workerIds); // Debug log
-
-      // Ensure workerIds is an array and filter out any invalid IDs
-      const validWorkerIds = Array.isArray(workerIds)
-  ? workerIds.filter(id => !!id)
-  : [];
-
-
-      console.log('Valid worker IDs:', validWorkerIds); // Debug log
-
-      // If no valid workers, clear the assignment
-      if (validWorkerIds.length === 0) {
-        const response = await api.put(`/tasks/${taskId}`, {
-          assignedWorkers: []
-        });
-        
-        if (response.data.success) {
-          setTasks(prevTasks =>
-            prevTasks.map(task =>
-              task._id === taskId
-                ? { ...task, assignedWorkers: [] }
-                : task
-            )
-          );
-          setMessage('Workers unassigned successfully');
-          setTimeout(() => setMessage(''), 3000);
-        }
-        return;
-      }
-
-      // Get worker names for confirmation
-      const selectedWorkers = validWorkerIds
-        .map(id => {
-          const worker = workers.find(w => w._id === id);
-          return worker ? worker.name : `Worker (${id})`;
-        })
-        .join(', ');
-
-      // Confirm before making changes
-      if (!window.confirm(`Assign this task to: ${selectedWorkers || 'No workers selected'}?`)) {
-        setLoading(false);
-        return;
-      }
-
-      // Update the task with the new worker assignments
+      console.log('Sending:', { taskId, assignedWorkers: newWorkerIds });
+      
       const response = await api.put(`/tasks/${taskId}`, {
-        assignedWorkers: validWorkerIds
+        assignedWorkers: newWorkerIds
       });
 
       if (response.data.success) {
-        // Get the full worker objects for the assigned workers
-        const updatedAssignedWorkers = validWorkerIds.map(id => 
-  workers.find(w => w._id === id)
-).filter(Boolean);
-
-
-        // Update the UI with the new worker assignments
-        setTasks(prevTasks =>
-          prevTasks.map(task =>
-            task._id === taskId
-              ? { 
-                  ...task, 
-                  assignedWorkers: updatedAssignedWorkers
-                }
-              : task
-          )
-        );
-        
-        if (response.data.success) {
-  await fetchTodayTasks();
-  setMessage('Workers assigned successfully');
-  setTimeout(() => setMessage(''), 3000);
-}
+        await fetchTodayTasks();
+        setMessage(newWorkerIds.length === 0 ? 'Workers unassigned successfully' : 'Workers assigned successfully');
+        setTimeout(() => setMessage(''), 3000);
       }
     } catch (error) {
-      console.error('Error assigning workers:', error);
-      setMessage(error.response?.data?.message || 'Error assigning workers');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStatusChange = async (taskId, status) => {
-    try {
-      setLoading(true);
-      await api.put(`/tasks/${taskId}`, { status });
+      console.error('Full error:', error);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error message:', error.response?.data?.message);
+      console.error('Validation errors:', error.response?.data?.errors);
+      
+      const errorMsg = error.response?.data?.errors?.[0]?.message || 
+                       error.response?.data?.message || 
+                       'Error updating workers';
+      setMessage(errorMsg);
       await fetchTodayTasks();
-      setMessage("Task status updated successfully");
-      setTimeout(() => setMessage(""), 3000);
-    } catch (error) {
-      console.error("Error updating task status:", error);
-      setMessage("Error updating task status");
     } finally {
       setLoading(false);
     }
@@ -289,7 +270,9 @@ function SupervisorTaskAssignment() {
                   <p style={{ margin: "0 0 10px 0", color: "#666" }}>
                     {task.description}
                   </p>
-                  <small>Date: {new Date(task.date).toLocaleDateString()}</small>
+                  <div style={{ fontSize: "13px", color: "#555" }}>
+                    <div>Schedule Date: {new Date(task.date).toLocaleDateString()}</div>
+                  </div>
                 </div>
 
                 <div style={{ display: "flex", gap: "10px" }}>
@@ -305,27 +288,23 @@ function SupervisorTaskAssignment() {
                   >
                     {task.priority.toUpperCase()}
                   </span>
-                  <select
-                    value={task.status}
-                    onChange={(e) => handleStatusChange(task._id, e.target.value)}
-                    style={{
-                      padding: "4px 8px",
-                      borderRadius: "4px",
-                      fontSize: "11px",
-                      backgroundColor: getStatusColor(task.status),
-                      color: "white",
-                      border: "none",
-                      cursor: "pointer",
-                      fontWeight: "bold",
-                      height: "24px"
-                    }}
-                  >
-                    <option value="pending">PENDING</option>
-                    <option value="on-schedule">ON-SCHEDULE</option>
-                    <option value="behind">BEHIND</option>
-                    <option value="ahead">AHEAD</option>
-                    <option value="completed">COMPLETED</option>
-                  </select>
+                  <div style={{ marginBottom: "10px" }}>
+                    <span 
+                      style={{
+                        color: getStatusColor(task.status),
+                        fontWeight: 500,
+                        textTransform: 'capitalize',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: `${getStatusColor(task.status)}20`,
+                        display: 'inline-block',
+                        minWidth: '80px',
+                        textAlign: 'center'
+                      }}
+                    >
+                      {task.status.replace('-', ' ')}
+                    </span>
+                  </div>
                 </div>
               </div>
 

@@ -12,23 +12,53 @@ import {
   message,
   Dropdown,
   Menu,
+  Alert
 } from "antd";
 import { 
   PlusOutlined, 
   UserAddOutlined, 
   MoreOutlined, 
   EditOutlined, 
-  DeleteOutlined 
+  DeleteOutlined,
+  WarningOutlined
 } from '@ant-design/icons';
 import { getDashboardStats, getTasks, deleteTask } from "../../services/dashboardService";
 import TaskAssignment from "../../components/TaskAssignment";
 import WorkerAssignment from "../../components/WorkerAssignment";
 
+// Debug component to display the current state
+const DebugPanel = ({ stats }) => (
+  <div style={{ 
+    position: 'fixed', 
+    bottom: 0, 
+    right: 0, 
+    background: '#f0f2f5', 
+    padding: '10px',
+    border: '1px solid #d9d9d9',
+    maxWidth: '400px',
+    maxHeight: '300px',
+    overflow: 'auto',
+    zIndex: 1000
+  }}>
+    <h4>Debug Info:</h4>
+    <pre>{JSON.stringify(stats, null, 2)}</pre>
+  </div>
+);
+
 const { Title, Text } = Typography;
 
 function Dashboard() {
+  console.log('Dashboard component rendering...');
+  
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState(null);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState({
+    totalTasks: 0,
+    onScheduleTasks: 0,
+    behindTasks: 0,
+    aheadTasks: 0,
+    userStats: []
+  });
   const [tasks, setTasks] = useState([]);
   const [filters, setFilters] = useState({
     status: 'all',
@@ -37,20 +67,63 @@ function Dashboard() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [userRole, setUserRole] = useState('admin'); // This should come from auth context
+  const [showDebug, setShowDebug] = useState(process.env.NODE_ENV === 'development');
 
   useEffect(() => {
     fetchDashboardData();
   }, [filters]);
 
   const fetchDashboardData = async () => {
+    console.log('fetchDashboardData called');
     try {
       setLoading(true);
+      setError(null);
+      
       console.log('Fetching dashboard data...');
       
       // Fetch dashboard statistics
-      const statsData = await getDashboardStats();
-      console.log('Dashboard stats:', statsData);
-      setStats(statsData);
+      console.log('Calling getDashboardStats()...');
+      const response = await getDashboardStats();
+      console.log('API Response:', response);
+      
+      // Check if response is valid
+      if (!response) {
+        throw new Error('No response from server');
+      }
+      
+      // Check for error in response
+      if (response.error) {
+        throw new Error(response.message || 'Failed to fetch dashboard data');
+      }
+      
+      // Check if data exists in the response
+      if (!response.data) {
+        console.warn('No data property in response, using response directly');
+        // If no data property, use the response directly (for backward compatibility)
+        setStats(prev => ({
+          ...prev,
+          ...response,
+          // Ensure all required fields have default values
+          totalTasks: response.totalTasks || 0,
+          onScheduleTasks: response.onScheduleTasks || 0,
+          behindTasks: response.behindTasks || 0,
+          aheadTasks: response.aheadTasks || 0,
+          userStats: response.userStats || []
+        }));
+      } else {
+        // If data exists, use the nested data object
+        console.log('Setting stats with data:', response.data);
+        setStats(prev => ({
+          ...prev,
+          ...response.data,
+          // Ensure all required fields have default values
+          totalTasks: response.data.totalTasks || 0,
+          onScheduleTasks: response.data.onScheduleTasks || 0,
+          behindTasks: response.data.behindTasks || 0,
+          aheadTasks: response.data.aheadTasks || 0,
+          userStats: response.data.userStats || []
+        }));
+      }
       
       // Fetch tasks with filters
       const taskFilters = {};
@@ -60,18 +133,39 @@ function Dashboard() {
       const tasksData = await getTasks(taskFilters);
       console.log('Tasks data:', tasksData);
       setTasks(tasksData);
-      console.log('Dashboard state updated with:', { stats: statsData, tasks: tasksData });
+      console.log('Dashboard state updated with tasks:', tasksData);
     } catch (error) {
-      console.error('Error in fetchDashboardData:', {
+      const errorDetails = {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
         stack: error.stack
+      };
+      
+      console.error('Error in fetchDashboardData:', errorDetails);
+      
+      // Set error state for UI feedback
+      setError({
+        message: 'Failed to load dashboard data',
+        details: error.message,
+        timestamp: new Date().toISOString()
       });
-      message.error(`Failed to load dashboard data: ${error.message}`);
+      
+      // Show error message to user
+      message.error(`Error: ${error.message}`);
+      
+      // Reset to default values on error
+      setStats({
+        totalTasks: 0,
+        onScheduleTasks: 0,
+        behindTasks: 0,
+        aheadTasks: 0,
+        userStats: []
+      });
     } finally {
       setLoading(false);
       console.log('Loading state set to false');
+      console.log('Current stats state:', stats);
     }
   };
 
@@ -306,11 +400,11 @@ function Dashboard() {
       </Row>
 
       {/* TASK CARDS */}
-      {loading ? (
+{loading ? (
         <div style={{ textAlign: 'center', padding: '20px' }}>
           <Spin />
         </div>
-      ) : (
+      ) : tasks.length > 0 ? (
         tasks.map((task) => (
           <Card key={task._id} style={{ marginTop: 10 }}>
             <Row justify="space-between" align="middle">
@@ -350,9 +444,7 @@ function Dashboard() {
             </Row>
           </Card>
         ))
-      )}
-
-      {tasks.length === 0 && !loading && (
+      ) : (
         <Card style={{ marginTop: 10, textAlign: 'center' }}>
           <Text type="secondary">No tasks found matching the current filters.</Text>
         </Card>

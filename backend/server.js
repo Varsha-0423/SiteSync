@@ -1,4 +1,6 @@
+const http = require('http');
 const express = require('express');
+const { Server } = require('socket.io');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const path = require('path');
@@ -13,6 +15,28 @@ dotenv.config();
 connectDB();
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+    methods: ['GET', 'POST']
+  },
+  path: '/socket.io/'
+});
+
+// Make io accessible to other modules
+app.set('io', io);
+
+// Socket.IO connection handler
+io.on('connection', (socket) => {
+  console.log('A client connected');
+  
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
+  });
+});
 
 // CORS Configuration
 const corsOptions = {
@@ -55,14 +79,23 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-const server = app.listen(
-  PORT,
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`.yellow.bold)
-);
+// Export the server and io for use in other files
+const appServer = server.listen(PORT, () => {
+  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`.yellow.bold);
+});
+
+// Handle server errors
+appServer.on('error', (error) => {
+  console.error('Server error:', error);
+});
+
+// Export the io instance so it can be used in controllers
+module.exports = { io };
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
   console.error(`Error: ${err.message}`.red);
   // Close server & exit process
+  appServer.close(() => process.exit(1));
   server.close(() => process.exit(1));
 });

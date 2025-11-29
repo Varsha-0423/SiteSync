@@ -1,20 +1,25 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, Menu, Button, theme } from 'antd';
+import { Layout, Menu, Button, Dropdown, Avatar, Typography, theme } from 'antd';
 import {
   DashboardOutlined,
   UserAddOutlined,
   UploadOutlined,
   CheckSquareOutlined,
   CalendarOutlined,
-  LogoutOutlined
+  LogoutOutlined,
+  UserOutlined,
+  ProfileOutlined
 } from '@ant-design/icons';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { Header } = Layout;
+const { Text } = Typography;
 
 const AdminNavbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { currentUser, logout } = useAuth();
   const {
     token: { colorBgContainer },
   } = theme.useToken();
@@ -30,10 +35,21 @@ const AdminNavbar = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    logout();
     navigate('/login');
   };
+
+  const userMenu = (
+    <Menu>
+      <Menu.Item key="profile" icon={<ProfileOutlined />}>
+        <NavLink to="/profile">My Profile</NavLink>
+      </Menu.Item>
+      <Menu.Divider />
+      <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={handleLogout}>
+        Logout
+      </Menu.Item>
+    </Menu>
+  );
 
   return (
     <Header style={{ 
@@ -79,14 +95,20 @@ const AdminNavbar = () => {
           <NavLink to="/admin/schedule-tasks">Schedule Tasks</NavLink>
         </Menu.Item>
       </Menu>
-      <Button 
-        type="text" 
-        icon={<LogoutOutlined />} 
-        onClick={handleLogout}
-        style={{ color: 'rgba(0, 0, 0, 0.65)' }}
-      >
-        Logout
-      </Button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <Dropdown overlay={userMenu} trigger={['click']} placement="bottomRight">
+          <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', padding: '8px' }}>
+            <Avatar 
+              size="default" 
+              icon={<UserOutlined />} 
+              style={{ backgroundColor: '#1890ff', marginRight: '8px' }}
+            />
+            <Text strong style={{ color: 'rgba(0, 0, 0, 0.65)' }}>
+              {currentUser?.name || currentUser?.email || 'User'}
+            </Text>
+          </div>
+        </Dropdown>
+      </div>
     </Header>
   );
 };

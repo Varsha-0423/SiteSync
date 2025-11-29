@@ -2,12 +2,44 @@ import api from '../api';
 
 // Get dashboard statistics
 export const getDashboardStats = async () => {
+  console.log('Fetching dashboard stats from API...');
   try {
     const response = await api.get('/tasks/dashboard-stats');
-    return response.data.data;
+    console.log('Raw API response:', response);
+    
+    // Check if response is valid
+    if (!response) {
+      throw new Error('No response from server');
+    }
+    
+    // If response has data property, return it
+    if (response.data) {
+      // Check if data is nested under another data property
+      if (response.data.data) {
+        console.log('Returning nested data:', response.data.data);
+        return response.data;
+      }
+      console.log('Returning direct data:', response.data);
+      return { data: response.data };
+    }
+    
+    // If no data property, return the whole response
+    console.log('No data property, returning full response');
+    return { data: response };
   } catch (error) {
-    console.error('Error fetching dashboard stats:', error);
-    throw error;
+    console.error('Error in getDashboardStats:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+      url: error.config?.url
+    });
+    
+    // Return a consistent error object structure
+    return {
+      error: true,
+      message: error.response?.data?.message || error.message || 'Failed to fetch dashboard stats',
+      status: error.response?.status
+    };
   }
 };
 

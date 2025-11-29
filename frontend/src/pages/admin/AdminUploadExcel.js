@@ -1,9 +1,64 @@
 import React, { useState } from "react";
-import { Tabs, Button, message as antMessage } from 'antd';
-import { UploadOutlined, UserOutlined, FileDoneOutlined } from '@ant-design/icons';
+import { Tabs, Button, message as antMessage, Table } from 'antd';
+import { UploadOutlined, UserOutlined, FileDoneOutlined, FileTextOutlined } from '@ant-design/icons';
+import * as XLSX from 'xlsx';
 import api from "../../api";
 
 const { TabPane } = Tabs;
+
+// Helper function to format dates consistently
+const formatDate = (date, includeTime = false) => {
+  if (!date) return '-';
+  
+  try {
+    let dateObj;
+    if (typeof date === 'string') {
+      // Try parsing as ISO string first
+      dateObj = new Date(date);
+      
+      // If that fails, try parsing the specific format from your Excel
+      if (isNaN(dateObj.getTime())) {
+        // Handle format like "8/2/2025, 4:00:00 am"
+        const [datePart, timePart] = date.split(', ');
+        if (datePart && timePart) {
+          const [month, day, year] = datePart.split('/').map(Number);
+          const [time, period] = timePart.split(' ');
+          const [hours, minutes, seconds] = time.split(':').map(Number);
+          
+          let hours24 = hours;
+          if (period?.toLowerCase() === 'pm' && hours < 12) {
+            hours24 += 12;
+          } else if (period?.toLowerCase() === 'am' && hours === 12) {
+            hours24 = 0;
+          }
+          
+          dateObj = new Date(year, month - 1, day, hours24, minutes, seconds);
+        }
+      }
+    } else {
+      dateObj = date;
+    }
+    
+    if (isNaN(dateObj)) return '-';
+    
+    const options = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    };
+    
+    if (includeTime) {
+      options.hour = '2-digit';
+      options.minute = '2-digit';
+      options.hour12 = true;
+    }
+    
+    return dateObj.toLocaleString(undefined, options);
+  } catch (e) {
+    console.error('Error formatting date:', date, e);
+    return '-';
+  }
+};
 
 function AdminUploadExcel() {
   const [activeTab, setActiveTab] = useState('workers');
@@ -91,83 +146,210 @@ function AdminUploadExcel() {
     setUploadedData([]);
   };
 
+  const taskColumns = [
+    {
+      title: 'Activity ID',
+      dataIndex: 'activityId',
+      key: 'activityId',
+      width: 250,
+    },
+    {
+      title: 'Activity Name',
+      dataIndex: 'taskName',
+      key: 'taskName',
+      width: 250,
+    },
+    {
+      title: 'Start Date',
+      dataIndex: 'startDate',
+      key: 'startDate',
+      width: 150,
+      render: (date) => formatDate(date),
+    },
+    {
+      title: 'End Date',
+      dataIndex: 'endDate',
+      key: 'endDate',
+      width: 150,
+      render: (date) => formatDate(date),
+    },
+    {
+      title: 'Remarks',
+      dataIndex: 'remarks',
+      key: 'remarks',
+      width: 200,
+    },
+  ];
+
+  const workerColumns = [
+    {
+      title: 'Code',
+      dataIndex: 'code',
+      key: 'code',
+      render: (code) => code || '-',
+    },
+    {
+      title: 'Emp Name',
+      dataIndex: 'name',
+      key: 'name',
+      render: (name) => name || '-',
+    },
+    {
+      title: 'Division',
+      dataIndex: 'division',
+      key: 'division',
+      render: (division) => division || '-',
+    },
+    {
+      title: 'Payroll Month',
+      dataIndex: 'payrollMonth',
+      key: 'payrollMonth',
+      render: (month) => month || '-',
+    },
+    {
+      title: 'Designation',
+      dataIndex: 'designation',
+      key: 'designation',
+      render: (designation) => designation || '-',
+    },
+    {
+      title: 'Job',
+      dataIndex: 'job',
+      key: 'job',
+      render: (job) => job || '-',
+    },
+    {
+      title: 'Days Attended',
+      dataIndex: 'daysAttended',
+      key: 'daysAttended',
+      render: (days) => days || '-',
+    },
+    {
+      title: 'OT Hours',
+      dataIndex: 'otHours',
+      key: 'otHours',
+      render: (hours) => hours || '-',
+    },
+    {
+      title: 'Net Salary',
+      dataIndex: 'netSalary',
+      key: 'netSalary',
+      render: (salary) => salary || '-',
+    },
+    {
+      title: 'Fixed Cost',
+      dataIndex: 'fixedCost',
+      key: 'fixedCost',
+      render: (cost) => cost || '-',
+    },
+    {
+      title: 'Total Cost',
+      dataIndex: 'totalCost',
+      key: 'totalCost',
+      render: (total) => total || '-',
+    },
+    {
+      title: 'Role',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role) => role ? role.charAt(0).toUpperCase() + role.slice(1) : '-',
+    },
+  ];
+
   const renderWorkersTable = () => (
-    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
-      <thead>
-        <tr style={{ backgroundColor: '#f8f9fa' }}>
-          <th style={tableHeaderStyle}>Name</th>
-          <th style={tableHeaderStyle}>Worker ID</th>
-          <th style={tableHeaderStyle}>Email</th>
-          <th style={tableHeaderStyle}>Role</th>
-          <th style={tableHeaderStyle}>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {uploadedData.map((user, index) => (
-          <tr key={user._id || index}>
-            <td style={tableCellStyle}>{user.name}</td>
-            <td style={tableCellStyle}>{user.workerId || '-'}</td>
-            <td style={tableCellStyle}>{user.email}</td>
-            <td style={tableCellStyle}>{user.role || 'worker'}</td>
-            <td style={{...tableCellStyle, color: user.error ? '#ff4d4f' : '#52c41a'}}>
-              {user.error ? 'Error' : 'Success'}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Table 
+      columns={workerColumns} 
+      dataSource={uploadedData} 
+      rowKey="_id"
+      pagination={false}
+      style={{ marginTop: '20px' }}
+    />
   );
 
   const renderTasksTable = () => (
-    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
-      <thead>
-        <tr style={{ backgroundColor: '#f8f9fa' }}>
-          <th style={tableHeaderStyle}>Task Name</th>
-          <th style={tableHeaderStyle}>Description</th>
-          <th style={tableHeaderStyle}>Due Date</th>
-          <th style={tableHeaderStyle}>Priority</th>
-          <th style={tableHeaderStyle}>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {uploadedData.map((task, index) => (
-          <tr key={task._id || index}>
-            <td style={tableCellStyle}>{task.taskName}</td>
-            <td style={tableCellStyle}>{task.description || '-'}</td>
-            <td style={tableCellStyle}>
-              {task.date ? new Date(task.date).toLocaleDateString() : '-'}
-            </td>
-            <td style={tableCellStyle}>{task.priority || 'medium'}</td>
-            <td style={tableCellStyle}>{task.status || 'pending'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Table 
+      columns={taskColumns}
+      dataSource={uploadedData}
+      rowKey="_id"
+      pagination={false}
+      style={{ marginTop: '20px' }}
+    />
   );
 
-  const tableHeaderStyle = {
-    border: '1px solid #ddd',
-    padding: '12px',
-    textAlign: 'left',
-    backgroundColor: '#f0f2f5',
-    fontWeight: '600'
+  const createTaskTemplate = () => {
+    const templateData = [
+      {
+        activityId: 'PI-CN-P1-SS-Sup-1080',
+        activityName: 'Trench Works',
+        startDate: '25-Oct-25',
+        endDate: '07-Nov-25',
+        remarks: 'na'
+      },
+      {
+        activityId: 'PI-CN-P1-SS-Sup-1081',
+        activityName: 'Cable Installation',
+        startDate: '08-Nov-25',
+        endDate: '15-Nov-25',
+        remarks: 'Priority task'
+      }
+    ];
+
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tasks');
+    XLSX.writeFile(wb, 'task-import-template.xlsx');
   };
 
-  const tableCellStyle = {
-    border: '1px solid #ddd',
-    padding: '10px',
-    verticalAlign: 'top'
-  };
+  const renderUploadSection = (type) => (
+    <div style={{ margin: '20px 0' }}>
+      <input 
+        type="file" 
+        accept=".xlsx,.xls" 
+        onChange={handleFileChange}
+        id={`${type}-file-upload`}
+        style={{ display: 'none' }}
+      />
+      <Button
+        type="primary"
+        onClick={() => document.getElementById(`${type}-file-upload`).click()}
+        style={{ marginRight: '10px' }}
+        icon={<FileDoneOutlined />}
+      >
+        Select Excel File
+      </Button>
+      {file && (
+        <span style={{ marginRight: '10px' }}>{file.name}</span>
+      )}
+      <Button
+        type="primary"
+        onClick={uploadFile}
+        disabled={!file || loading}
+        loading={loading}
+        icon={<UploadOutlined />}
+      >
+        {`Upload ${type === 'workers' ? 'Workers' : 'Tasks'}`}
+      </Button>
+      
+      {activeTab === 'tasks' && (
+        <div style={{ marginTop: '20px', backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '4px' }}>
+          <h4>Excel File Requirements:</h4>
+          <ul>
+            <li>Required columns: <strong>activityId, activityName, startDate, endDate</strong></li>
+            <li>Optional column: <strong>remarks</strong></li>
+            <li>Date format: DD-Mon-YY (e.g., 25-Oct-25)</li>
+          </ul>
+          <Button type="link" onClick={createTaskTemplate} style={{ padding: 0 }}>
+            Download Template
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h2>Admin: Upload Data</h2>
-      
-      <Tabs 
-        activeKey={activeTab} 
-        onChange={setActiveTab}
-        style={{ marginBottom: '24px' }}
-      >
+    <div style={{ padding: '20px' }}>
+      <h2>Bulk Upload</h2>
+      <Tabs activeKey={activeTab} onChange={setActiveTab}>
         <TabPane
           tab={
             <span>
@@ -177,71 +359,33 @@ function AdminUploadExcel() {
           }
           key="workers"
         >
-          <div style={{ margin: '20px 0' }}>
-            <p>Upload an Excel file with worker details. Required columns:</p>
-            <ul>
-              <li><strong>name</strong> - Full name of the worker</li>
-              <li><strong>workerId</strong> - Unique ID for the worker</li>
-              <li><strong>email</strong> - Valid email address</li>
-              <li><strong>role</strong> - worker or supervisor</li>
-            </ul>
-            <p style={{ marginTop: '10px' }}>
-              <strong>Note:</strong> All workers will be created with a default password that they can reset later.
-            </p>
-          </div>
+          {renderUploadSection('workers')}
+          {uploadedData.length > 0 && renderWorkersTable()}
+          {message && (
+            <div style={{ marginTop: '20px', whiteSpace: 'pre-line' }}>
+              {message}
+            </div>
+          )}
         </TabPane>
         <TabPane
           tab={
             <span>
-              <FileDoneOutlined />
+              <FileTextOutlined />
               Tasks
             </span>
           }
           key="tasks"
         >
-          <div style={{ margin: '20px 0' }}>
-            <p>Upload an Excel file with task details. Required columns: taskName, description, date, priority</p>
-          </div>
+          {renderUploadSection('tasks')}
+          {uploadedData.length > 0 && renderTasksTable()}
+          {message && (
+            <div style={{ marginTop: '20px', whiteSpace: 'pre-line' }}>
+              {message}
+            </div>
+          )}
         </TabPane>
       </Tabs>
 
-      <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-        <input
-          type="file"
-          onChange={handleFileChange}
-          accept=".xlsx,.xls"
-          style={{ padding: '8px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
-        />
-        <Button
-          type="primary"
-          icon={<UploadOutlined />}
-          onClick={uploadFile}
-          loading={loading}
-          disabled={!file}
-        >
-          {`Upload ${activeTab === 'workers' ? 'Workers' : 'Tasks'}`}
-        </Button>
-      </div>
-
-      {message && (
-        <div style={{
-          margin: '20px 0',
-          padding: '12px',
-          backgroundColor: message.toLowerCase().includes('fail') ? '#fff2f0' : '#f6ffed',
-          border: `1px solid ${message.toLowerCase().includes('fail') ? '#ffccc7' : '#b7eb8f'}`,
-          borderRadius: '4px',
-          color: message.toLowerCase().includes('fail') ? '#ff4d4f' : '#52c41a'
-        }}>
-          {message}
-        </div>
-      )}
-
-      {uploadedData.length > 0 && (
-        <div style={{ marginTop: '24px', overflowX: 'auto' }}>
-          <h3>Uploaded {activeTab === 'workers' ? 'Workers' : 'Tasks'} ({uploadedData.length})</h3>
-          {activeTab === 'workers' ? renderWorkersTable() : renderTasksTable()}
-        </div>
-      )}
     </div>
   );
 }

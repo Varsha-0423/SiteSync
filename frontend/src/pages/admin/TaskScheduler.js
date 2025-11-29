@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api";
+import io from "socket.io-client";
 
 function TaskScheduler() {
   const [allTasks, setAllTasks] = useState([]);
@@ -9,21 +10,104 @@ function TaskScheduler() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState('');
-  const [deadlineDate, setDeadlineDate] = useState('');
   const [supervisors, setSupervisors] = useState([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState('');
-  const [dateError, setDateError] = useState('');
-  const [deadlineError, setDeadlineError] = useState('');
   const [supervisorError, setSupervisorError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [tasksError, setTasksError] = useState('');
+  const [socket, setSocket] = useState(null);
   const navigate = useNavigate();
+
+  // Handle work submission updates
+  const handleWorkSubmitted = useCallback((data) => {
+    console.log('Work submitted event received:', data);
+    
+    // Update the task in the allTasks state
+    setAllTasks(prevTasks => {
+      return prevTasks.map(task => {
+        if (task._id === data.taskId) {
+          // Update the task status to completed if the work was submitted by supervisor
+          if (data.workReport.status === 'completed') {
+            return { ...task, status: 'completed' };
+          }
+          // For other statuses, update the task with the new work report
+          return {
+            ...task,
+            workReports: [...(task.workReports || []), data.workReport]
+          };
+        }
+        return task;
+      });
+    });
+    
+    // Also update today's tasks if the task is in today's list
+    setTodayTasks(prevTodayTasks => {
+      return prevTodayTasks.map(task => {
+        if (task._id === data.taskId) {
+          if (data.workReport.status === 'completed') {
+            return { ...task, status: 'completed' };
+          }
+          return {
+            ...task,
+            workReports: [...(task.workReports || []), data.workReport]
+          };
+        }
+        return task;
+      });
+    });
+    
+    setMessage({
+      type: 'success',
+      text: `Work submitted for task: ${data.workReport.task}`
+    });
+  }, []);
+
+  // Set up WebSocket connection
+  useEffect(() => {
+    // Initialize socket connection with the correct URL
+    const socketUrl = process.env.REACT_APP_WS_URL || 'http://localhost:5000';
+    console.log('Connecting to WebSocket at:', socketUrl);
+    const newSocket = io(socketUrl, {
+      withCredentials: true,
+      transports: ['websocket'],
+      path: '/socket.io/'
+    });
+    
+    // Set up event listeners
+    newSocket.on('connect', () => {
+      console.log('WebSocket connected:', newSocket.connected);
+    });
+    
+    newSocket.on('connect_error', (error) => {
+      console.error('WebSocket connection error:', error);
+    });
+    
+    setSocket(newSocket);
+
+    // Set up event listeners
+    newSocket.on('workSubmitted', handleWorkSubmitted);
+
+    // Clean up on unmount
+    return () => {
+      newSocket.off('workSubmitted', handleWorkSubmitted);
+      newSocket.disconnect();
+    };
+  }, [handleWorkSubmitted]);
 
   useEffect(() => {
     fetchAllTasks();
     fetchTodayTasks();
     fetchSupervisors();
+  }, []);
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchAllTasks();
+      fetchTodayTasks();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchAllTasks = async () => {
@@ -39,8 +123,19 @@ function TaskScheduler() {
   const fetchTodayTasks = async () => {
     try {
       const response = await api.get('/tasks/today');
-      setTodayTasks(response.data.data || []);
-      setSelectedTaskIds(response.data.data?.map(task => task._id) || []);
+      const todayTasksData = response.data.data || [];
+      setTodayTasks(todayTasksData);
+      
+      // Don't auto-select any tasks on load
+      // Only update if we don't have any selected tasks yet (initial mount)
+      setSelectedTaskIds(prevIds => {
+        // Only update if we're on initial mount (empty array)
+        // and there are no selected tasks yet
+        if (prevIds.length === 0) {
+          return [];
+        }
+        return prevIds;
+      });
     } catch (error) {
       console.error('Error fetching today\'s tasks:', error);
     }
@@ -81,22 +176,9 @@ function TaskScheduler() {
 
   const handleScheduleConfirm = async () => {
     let valid = true;
-    setDateError('');
-    setDeadlineError('');
     setSupervisorError('');
     setTasksError('');
 
-    if (!selectedDate) {
-      setDateError('Start date is required');
-      valid = false;
-    }
-    if (!deadlineDate) {
-      setDeadlineError('Deadline is required');
-      valid = false;
-    } else if (new Date(deadlineDate) <= new Date(selectedDate)) {
-      setDeadlineError('Deadline must be after start date');
-      valid = false;
-    }
     if (!selectedSupervisor) {
       setSupervisorError('Supervisor is required');
       valid = false;
@@ -111,8 +193,6 @@ function TaskScheduler() {
       setLoading(true);
       await api.put('/tasks/update-today', {
         taskIds: selectedTaskIds,
-        date: selectedDate,
-        deadline: deadlineDate,
         supervisorId: selectedSupervisor
       });
       await fetchTodayTasks();
@@ -391,52 +471,8 @@ function TaskScheduler() {
               &times;
             </span>
             <h3 style={{ marginTop: 0 }}>Schedule Tasks</h3>
-            <p>Select a date and supervisor for the tasks:</p>
-            {/* Date, Deadline and Supervisor selection in a row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
-              <div>
-                <label>
-                  Start Date:&nbsp;
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={e => setSelectedDate(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    style={{
-                      padding: '6px',
-                      borderRadius: '4px',
-                      border: dateError ? '2px solid red' : '1px solid #ccc',
-                      width: '100%',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </label>
-                {dateError && (
-                  <div style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{dateError}</div>
-                )}
-              </div>
-              <div>
-                <label>
-                  Deadline:&nbsp;
-                  <input
-                    type="date"
-                    value={deadlineDate}
-                    onChange={e => setDeadlineDate(e.target.value)}
-                    min={selectedDate || new Date().toISOString().split('T')[0]}
-                    style={{
-                      padding: '6px',
-                      borderRadius: '4px',
-                      border: deadlineError ? '2px solid red' : '1px solid #ccc',
-                      width: '100%',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </label>
-                {deadlineError && (
-                  <div style={{ color: 'red', fontSize: '13px', marginTop: '4px' }}>{deadlineError}</div>
-                )}
-              </div>
-            </div>
+            <p>Select a supervisor for the tasks:</p>
+            {/* Supervisor selection */}
             <div style={{ marginBottom: '15px' }}>
               <div>
                 <label style={{ marginLeft: 'auto' }}>
