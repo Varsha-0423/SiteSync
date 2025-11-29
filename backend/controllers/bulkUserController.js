@@ -45,65 +45,17 @@ exports.processBulkUpload = async (req, res) => {
     const worksheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(worksheet);
 
-    // Define Excel column names and their mappings to database fields
-    const columnMappings = {
-      'Emp Name': 'name',
-      'Code': 'code',
-      'Division': 'division',
-      'Payroll Month': 'payrollMonth',
-      'Designation': 'designation',
-      'Job': 'job',
-      'DaysAttended': 'daysAttended',
-      'OT Hours': 'otHours',
-      'NetSalary': 'netSalary',
-      'Fixed Cost': 'fixedCost',
-      'Total cost': 'totalCost'
-    };
-
-    // Get the actual column names from the Excel file
-    const excelHeaders = Object.keys(data[0] || {});
-    
-    // Check if all required columns are present in the Excel file
-    const requiredColumns = Object.keys(columnMappings);
-    const missingColumns = requiredColumns.filter(col => !excelHeaders.includes(col));
+    // Validate required columns
+    const requiredColumns = ['name', 'email', 'role'];
+    const headers = Object.keys(data[0] || {});
+    const missingColumns = requiredColumns.filter(col => !headers.includes(col));
 
     if (missingColumns.length > 0) {
       return res.status(400).json({
         success: false,
-        message: `Missing required columns in Excel: ${missingColumns.join(', ')}`,
+        message: `Missing required columns: ${missingColumns.join(', ')}`,
       });
     }
-
-    // Map the Excel data to our database fields
-    const mappedData = data.map(row => {
-      const mappedRow = { role: 'worker' }; // Default role to 'worker' for all uploaded users
-      
-      // Map each Excel column to our database fields
-      for (const [excelCol, dbField] of Object.entries(columnMappings)) {
-        if (row[excelCol] !== undefined) {
-          mappedRow[dbField] = row[excelCol];
-        }
-      }
-      
-      // Generate a placeholder email if not provided
-      if (!mappedRow.email && mappedRow.code) {
-        // Ensure code is a string before calling toLowerCase()
-        const codeStr = String(mappedRow.code).trim();
-        mappedRow.email = `${codeStr.toLowerCase().replace(/\s+/g, '')}@company.com`;
-      }
-      
-      // Set default name if not provided
-      if (!mappedRow.name && mappedRow.code) {
-        const codeStr = String(mappedRow.code).trim();
-        mappedRow.name = `Employee ${codeStr}`;
-      }
-      
-      return mappedRow;
-    });
-    
-    // Replace the original data with our mapped data
-    data.length = 0;
-    data.push(...mappedData);
 
     // Process each row
     const results = {
@@ -118,17 +70,11 @@ exports.processBulkUpload = async (req, res) => {
       const rowNumber = i + 2; // +2 because Excel is 1-indexed and we have a header row
 
       try {
-        // Check if user already exists by code or email
-        const existingUser = await User.findOne({ 
-          $or: [
-            { email: row.email },
-            { code: row.code }
-          ]
-        });
+        // Check if user already exists
+        const existingUser = await User.findOne({ email: row.email });
 
         if (existingUser) {
-          const conflictField = existingUser.email === row.email ? 'email' : 'code';
-          results.errors.push(`Row ${rowNumber}: User with ${conflictField} "${row[conflictField]}" already exists`);
+          results.errors.push(`Row ${rowNumber}: User with email ${row.email} already exists`);
           continue;
         }
 
@@ -138,26 +84,19 @@ exports.processBulkUpload = async (req, res) => {
 
         const newUser = new User({
           name: row.name,
-          code: row.code,
           email: row.email,
           role: row.role.toLowerCase(),
-          division: row.division,
-          payrollMonth: row.payrollMonth,
-          designation: row.designation,
-          job: row.job,
-          daysAttended: row.daysAttended,
-          otHours: row.otHours,
-          netSalary: row.netSalary,
-          fixedCost: row.fixedCost,
-          totalCost: row.totalCost,
           password: hashedPassword,
         });
 
         await newUser.save();
         results.success++;
-        // Create a user object without the password
-        const { password, ...userWithoutPassword } = newUser.toObject();
-        createdUsers.push(userWithoutPassword);
+        createdUsers.push({
+          _id: newUser._id,
+          name: newUser.name,
+          email: newUser.email,
+          role: newUser.role
+        });
       } catch (error) {
         results.errors.push(`Row ${rowNumber}: ${error.message || 'Error processing this row'}`);
       }

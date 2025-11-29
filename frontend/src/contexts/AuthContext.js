@@ -62,15 +62,13 @@ export function AuthProvider({ children }) {
     verifyToken();
   }, []);
 
-  const login = async (email, password, role) => {
+  const login = async (email, password) => {
     // Normalize inputs
     email = email?.trim().toLowerCase();
-    role = role?.toLowerCase();
 
     try {
       console.log('Login attempt:', { 
-        email, 
-        role,
+        email,
         password: password ? '***' : 'MISSING',
         timestamp: new Date().toISOString()
       });
@@ -84,8 +82,7 @@ export function AuthProvider({ children }) {
 
       const requestData = { 
         email, 
-        password,
-        role 
+        password
       };
 
       console.log('Sending login request to /auth/login with data:', {
@@ -138,7 +135,6 @@ export function AuthProvider({ children }) {
           responseData,
           requestData: {
             email: requestData.email,
-            role: requestData.role,
             password: '***'
           }
         });

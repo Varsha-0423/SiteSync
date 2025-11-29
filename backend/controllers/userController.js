@@ -14,15 +14,11 @@ exports.createUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create user
+    // Create user (password will be hashed by User model's pre-save hook)
     const user = await User.create({
       name,
       email,
-      password: hashedPassword,
+      password,
       role: role || 'supervisor' // Default to 'supervisor' if role not provided
     });
 
@@ -73,21 +69,13 @@ exports.getUsers = async (req, res) => {
 
 // @desc    Get single user by ID
 // @route   GET /api/users/:id
-// @access  Private/Admin/Supervisor
+// @access  Private/Admin
 exports.getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
-    }
-
-    // If the requester is a supervisor, they can only view workers
-    if (req.user.role === 'supervisor' && user.role !== 'worker') {
-      return res.status(403).json({ 
-        success: false,
-        message: 'Not authorized to view this user' 
-      });
     }
     
     res.json({
@@ -96,16 +84,7 @@ exports.getUserById = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching user:', error);
-    if (error.kind === 'ObjectId') {
-      return res.status(404).json({ 
-        success: false,
-        message: 'User not found' 
-      });
-    }
-    res.status(500).json({ 
-      success: false,
-      message: 'Server error fetching user' 
-    });
+    res.status(500).json({ message: 'Server error fetching user' });
   }
 };
 
@@ -115,27 +94,28 @@ exports.getUserById = async (req, res) => {
 exports.updateUser = async (req, res) => {
   try {
     const { name, email, role, password } = req.body;
-    const updateFields = { name, email, role };
-
-    // If password is provided, hash it
-    if (password) {
-      const salt = await bcrypt.genSalt(10);
-      updateFields.password = await bcrypt.hash(password, salt);
-    }
-
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      updateFields,
-      { new: true, runValidators: true }
-    ).select('-password');
-
+    
+    const user = await User.findById(req.params.id);
+    
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Update fields
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (role) user.role = role;
+    if (password) user.password = password; // Pre-save hook will hash it
+
+    await user.save();
+
+    // Remove password from response
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
     res.json({
       success: true,
-      data: user
+      data: userResponse
     });
   } catch (error) {
     console.error('Error updating user:', error);
