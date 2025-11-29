@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { Layout } from 'antd';
 import Login from "./pages/Login";
 import Dashboard from "./pages/admin/Dashboard";
 import AdminCreateUser from "./pages/admin/AdminCreateUser";
@@ -14,6 +15,7 @@ import SupervisorDashboard from "./pages/supervisor/SupervisorDashboard";
 import SupervisorLayout from "./pages/supervisor/SupervisorLayout";
 import SupervisorTaskAssignment from "./pages/supervisor/SupervisorTaskAssignment";
 import TaskDetail from "./pages/admin/TaskDetail";
+import ProfilePage from "./pages/ProfilePage";
 // import SubmitWork from "./pages/supervisor/tasks/SubmitWork";
 
 function App() {
@@ -68,6 +70,17 @@ function AppContent() {
           />
           
           {/* Protected routes */}
+          
+          {/* Profile Route - Accessible to all authenticated users */}
+          <Route 
+            path="/profile" 
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } 
+          />
+          
           {/* Admin Routes */}
           <Route 
             path="/admin" 
