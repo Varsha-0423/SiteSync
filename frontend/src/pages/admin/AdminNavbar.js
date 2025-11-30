@@ -27,7 +27,7 @@ const AdminNavbar = () => {
   // Determine which menu item should be selected based on the current path
   const getSelectedKey = () => {
     const path = location.pathname;
-    if (path.startsWith('/dashboard')) return '1';
+    if (path === '/admin/dashboard' || path === '/admin') return '1';
     if (path.includes('create-user')) return '2';
     if (path.includes('upload-tasks')) return '3';
     if (path.includes('schedule-tasks')) return '4';
@@ -42,7 +42,7 @@ const AdminNavbar = () => {
   const userMenu = (
     <Menu>
       <Menu.Item key="profile" icon={<ProfileOutlined />}>
-        <NavLink to="/profile">My Profile</NavLink>
+        <NavLink to="/admin/profile">My Profile</NavLink>
       </Menu.Item>
       <Menu.Divider />
       <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={handleLogout}>
@@ -78,7 +78,7 @@ const AdminNavbar = () => {
         style={{ flex: 1, borderBottom: 'none' }}
       >
         <Menu.Item key="1" icon={<DashboardOutlined />}>
-          <NavLink to="/dashboard">Dashboard</NavLink>
+          <NavLink to="/admin/dashboard">Dashboard</NavLink>
         </Menu.Item>
         <Menu.Item key="2" icon={<UserAddOutlined />}>
           <NavLink to="/admin/create-user">Create User</NavLink>

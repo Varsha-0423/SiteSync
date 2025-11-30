@@ -81,7 +81,7 @@ function AppContent() {
             } 
           />
           
-          {/* Admin Routes */}
+          {/* Admin routes */}
           <Route 
             path="/admin" 
             element={
@@ -95,6 +95,7 @@ function AppContent() {
             <Route path="users/:userId" element={<UserDetails />} />
             <Route path="create-user" element={<AdminCreateUser />} />
             <Route path="upload-excel" element={<AdminUploadExcel />} />
+            <Route path="upload-tasks" element={<AdminUploadExcel />} />
             <Route path="assign-tasks" element={<TaskAssignment />} />
             <Route path="task-scheduler" element={<TaskScheduler />} />
             <Route path="tasks/:taskId" element={<TaskDetail />} />
