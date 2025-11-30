@@ -110,10 +110,50 @@ function TaskScheduler() {
     return () => clearInterval(interval);
   }, []);
 
+  const checkAndUpdateTaskStatus = (tasks) => {
+    const now = new Date();
+    return tasks.map(task => {
+      // Skip if already completed or doesn't have an end date
+      if (task.status === 'completed' || !task.endDate) {
+        return task;
+      }
+
+      const endDate = new Date(task.endDate);
+      const taskDueDate = new Date(endDate);
+      taskDueDate.setHours(23, 59, 59, 999); // End of the day
+
+      // Check if task is overdue
+      if (now > taskDueDate && task.status !== 'completed' && task.status !== 'overdue') {
+        return { ...task, status: 'overdue' };
+      }
+      return task;
+    });
+  };
+
   const fetchAllTasks = async () => {
     try {
       const response = await api.get('/tasks');
-      setAllTasks(response.data.data || []);
+      const tasks = response.data.data || [];
+      const updatedTasks = checkAndUpdateTaskStatus(tasks);
+      
+      // Update tasks that are now overdue
+      const overdueUpdates = [];
+      updatedTasks.forEach(task => {
+        if (task.status === 'overdue' && (!response.data.data.find(t => t._id === task._id)?.status === 'overdue')) {
+          overdueUpdates.push(
+            api.patch(`/tasks/${task._id}`, { status: 'overdue' })
+          );
+        }
+      });
+
+      // Update status on server in the background
+      if (overdueUpdates.length > 0) {
+        Promise.all(overdueUpdates).catch(error => {
+          console.error('Error updating overdue tasks:', error);
+        });
+      }
+
+      setAllTasks(updatedTasks);
     } catch (error) {
       console.error('Error fetching all tasks:', error);
       setMessage('Error fetching tasks');
@@ -124,13 +164,29 @@ function TaskScheduler() {
     try {
       const response = await api.get('/tasks/today');
       const todayTasksData = response.data.data || [];
-      setTodayTasks(todayTasksData);
+      const updatedTasks = checkAndUpdateTaskStatus(todayTasksData);
+      
+      // Update tasks that are now overdue
+      const overdueUpdates = [];
+      updatedTasks.forEach(task => {
+        if (task.status === 'overdue' && (!response.data.data.find(t => t._id === task._id)?.status === 'overdue')) {
+          overdueUpdates.push(
+            api.patch(`/tasks/${task._id}`, { status: 'overdue' })
+          );
+        }
+      });
+
+      // Update status on server in the background
+      if (overdueUpdates.length > 0) {
+        Promise.all(overdueUpdates).catch(error => {
+          console.error('Error updating overdue tasks:', error);
+        });
+      }
+
+      setTodayTasks(updatedTasks);
       
       // Don't auto-select any tasks on load
-      // Only update if we don't have any selected tasks yet (initial mount)
       setSelectedTaskIds(prevIds => {
-        // Only update if we're on initial mount (empty array)
-        // and there are no selected tasks yet
         if (prevIds.length === 0) {
           return [];
         }
@@ -140,6 +196,7 @@ function TaskScheduler() {
       console.error('Error fetching today\'s tasks:', error);
     }
   };
+
   // Filter tasks based on selected status
   const filteredTasks = React.useMemo(() => {
     if (!allTasks || !Array.isArray(allTasks)) return [];
@@ -223,7 +280,36 @@ function TaskScheduler() {
       case 'behind': return '#dc3545';
       case 'ahead': return '#17a2b8';
       case 'completed': return '#28a745';
+      case 'overdue': return '#dc3545'; // Red color for overdue tasks
       default: return '#6c757d';
+    }
+  };
+
+  const updateTaskStatus = async (taskId, newStatus) => {
+    try {
+      setLoading(true);
+      await api.patch(`/tasks/${taskId}`, { status: newStatus });
+      
+      // Update the task in both allTasks and todayTasks
+      setAllTasks(prevTasks => 
+        prevTasks.map(task => 
+          task._id === taskId ? { ...task, status: newStatus } : task
+        )
+      );
+      
+      setTodayTasks(prevTasks => 
+        prevTasks.map(task => 
+          task._id === taskId ? { ...task, status: newStatus } : task
+        )
+      );
+      
+      setMessage('Task status updated successfully');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      setMessage('Failed to update task status');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -358,16 +444,32 @@ function TaskScheduler() {
                     }}>
                       {task.priority.toUpperCase()}
                     </span>
-                    <span style={{
-                      padding: '4px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      backgroundColor: getStatusColor(task.status),
-                      color: 'white',
-                      fontWeight: 'bold'
-                    }}>
-                      {task.status.toUpperCase()}
-                    </span>
+                    <select
+                      value={task.status}
+                      onChange={(e) => updateTaskStatus(task._id, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        backgroundColor: getStatusColor(task.status),
+                        color: 'white',
+                        fontWeight: 'bold',
+                        border: 'none',
+                        outline: 'none',
+                        cursor: 'pointer',
+                        WebkitAppearance: 'none',
+                        MozAppearance: 'none',
+                        textAlign: 'center',
+                        textTransform: 'uppercase'
+                      }}
+                    >
+                      <option value="pending" style={{ backgroundColor: '#6c757d' }}>PENDING</option>
+                      <option value="on-schedule" style={{ backgroundColor: '#28a745' }}>ON-SCHEDULE</option>
+                      <option value="behind" style={{ backgroundColor: '#dc3545' }}>BEHIND</option>
+                      <option value="ahead" style={{ backgroundColor: '#17a2b8' }}>AHEAD</option>
+                      <option value="completed" style={{ backgroundColor: '#28a745' }}>COMPLETED</option>
+                    </select>
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>

@@ -359,9 +359,9 @@ const deleteTask = async (req, res) => {
 const getDashboardStats = async (req, res) => {
   try {
     const totalTasks = await Task.countDocuments();
-    const onScheduleTasks = await Task.countDocuments({ status: 'on-schedule' });
-    const behindTasks = await Task.countDocuments({ status: 'behind' });
-    const aheadTasks = await Task.countDocuments({ status: 'ahead' });
+    const completedTasks = await Task.countDocuments({ status: 'completed' });
+    const issuesTasks = await Task.countDocuments({ status: 'behind' });
+    const pendingTasks = await Task.countDocuments({ status: 'pending' });
     
     const users = await User.find({ role: 'worker' }).select('name');
     const userStats = await Promise.all(
@@ -378,9 +378,9 @@ const getDashboardStats = async (req, res) => {
       success: true,
       data: {
         totalTasks,
-        onScheduleTasks,
-        behindTasks,
-        aheadTasks,
+        completedTasks,
+        issuesTasks,
+        pendingTasks,
         userStats
       }
     });

@@ -1,115 +1,107 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import { ClipboardList, Users, BarChart } from "lucide-react"; // icons
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Card, Row, Col, Typography, Divider, Spin } from "antd";
+import { ClockCircleOutlined, CheckCircleOutlined, WarningOutlined, FileTextOutlined, TeamOutlined, BarChartOutlined } from "@ant-design/icons";
+import { getDashboardStats } from "../../services/dashboardService";
+
+const { Title, Text } = Typography;
 
 function SupervisorDashboard() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalTasks: 0,
+    completedTasks: 0,
+    issuesTasks: 0,
+    pendingTasks: 0
+  });
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      const response = await getDashboardStats();
+      if (response?.data) {
+        setStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
-
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Supervisor Dashboard
-          </h1>
-          <p className="text-gray-500 text-sm">Welcome back 👋</p>
-        </div>
-
-        {/* Cards Section */}
-        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          
-          {/* Task Card */}
-          <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition p-6 border border-gray-100">
-            <div className="flex items-center">
-              <div className="p-3 rounded-xl bg-indigo-500 text-white">
-                <ClipboardList size={28} />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Tasks Assigned</p>
-                <h2 className="text-3xl font-bold text-gray-900">24</h2>
-              </div>
-            </div>
-            <Link
-              to="/supervisor/tasks"
-              className="block mt-4 text-indigo-600 font-semibold hover:underline"
-            >
-              View all tasks →
-            </Link>
-          </div>
-
-          {/* Team Card */}
-          <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition p-6 border border-gray-100">
-            <div className="flex items-center">
-              <div className="p-3 rounded-xl bg-green-500 text-white">
-                <Users size={28} />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Team Members</p>
-                <h2 className="text-3xl font-bold text-gray-900">8</h2>
-              </div>
-            </div>
-            <Link
-              to="/supervisor/team"
-              className="block mt-4 text-green-600 font-semibold hover:underline"
-            >
-              View team →
-            </Link>
-          </div>
-
-          {/* Reports Card */}
-          <div className="bg-white rounded-2xl shadow-md hover:shadow-lg transition p-6 border border-gray-100">
-            <div className="flex items-center">
-              <div className="p-3 rounded-xl bg-yellow-500 text-white">
-                <BarChart size={28} />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Reports</p>
-                <h2 className="text-3xl font-bold text-gray-900">5</h2>
-              </div>
-            </div>
-            <Link
-              to="/supervisor/reports"
-              className="block mt-4 text-yellow-600 font-semibold hover:underline"
-            >
-              View reports →
-            </Link>
-          </div>
-
-        </div>
-
-        {/* Recent Activity Section */}
-        <div className="mt-10">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Recent Activity
-          </h2>
-
-          <div className="bg-white rounded-2xl shadow-md border border-gray-100">
-            <ul className="divide-y divide-gray-200">
-
-              {/* Example Activity Item */}
-              <li className="p-5 hover:bg-gray-50 transition">
-                <div className="flex items-center justify-between">
-                  <p className="text-indigo-600 font-medium">
-                    Task #1234 marked as completed
-                  </p>
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                    Completed
-                  </span>
-                </div>
-
-                <div className="mt-2 flex justify-between text-sm text-gray-500">
-                  <p>Completed by John Doe</p>
-                  <p>2 hours ago</p>
-                </div>
-              </li>
-
-              {/* Add more items dynamically later */}
-
-            </ul>
-          </div>
-        </div>
-
+    <div style={{ padding: "20px" }}>
+      {/* Header */}
+      <div style={{ background: "#5b89c7", padding: "30px", borderRadius: "8px", color: "white", marginBottom: "20px" }}>
+        <Title style={{ color: "white", marginBottom: 0 }}>Supervisor Dashboard</Title>
+        <Text style={{ color: "white" }}>Manage tasks & team status efficiently</Text>
       </div>
+
+      {/* Stats Section */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          <Spin size="large" />
+        </div>
+      ) : (
+        <Row gutter={[16, 16]}>
+          <Col xs={24} sm={12} md={8}>
+            <Card style={{ borderLeft: "4px solid #1890ff" }}>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <ClockCircleOutlined style={{ fontSize: "40px", color: "#1890ff", marginRight: "16px" }} />
+                <div>
+                  <Text type="secondary">Pending Tasks</Text>
+                  <Title level={2} style={{ margin: 0 }}>{stats.pendingTasks || 0}</Title>
+                </div>
+              </div>
+            </Card>
+          </Col>
+
+          <Col xs={24} sm={12} md={8}>
+            <Card style={{ borderLeft: "4px solid #52c41a" }}>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <CheckCircleOutlined style={{ fontSize: "40px", color: "#52c41a", marginRight: "16px" }} />
+                <div>
+                  <Text type="secondary">Completed</Text>
+                  <Title level={2} style={{ margin: 0 }}>{stats.completedTasks || 0}</Title>
+                </div>
+              </div>
+            </Card>
+          </Col>
+
+          <Col xs={24} sm={12} md={8}>
+            <Card style={{ borderLeft: "4px solid #ff4d4f" }}>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <WarningOutlined style={{ fontSize: "40px", color: "#ff4d4f", marginRight: "16px" }} />
+                <div>
+                  <Text type="secondary">Issues Reported</Text>
+                  <Title level={2} style={{ margin: 0 }}>{stats.issuesTasks || 0}</Title>
+                </div>
+              </div>
+            </Card>
+          </Col>
+        </Row>
+      )}
+
+
+      {/* Recent Activity */}
+      <Title level={4}> Recent Activity</Title>
+      <Card>
+        {[
+          "Task #A204 completed by John Doe",
+          "Issue reported by worker in Task #A198",
+          "Task #A230 assigned to Rakesh"
+        ].map((activity, i) => (
+          <div key={i} style={{ padding: "12px 0", borderBottom: i < 2 ? "1px solid #f0f0f0" : "none", display: "flex", justifyContent: "space-between" }}>
+            <Text>{activity}</Text>
+            <Text type="secondary" style={{ fontSize: "12px" }}>1h ago</Text>
+          </div>
+        ))}
+      </Card>
     </div>
   );
 }

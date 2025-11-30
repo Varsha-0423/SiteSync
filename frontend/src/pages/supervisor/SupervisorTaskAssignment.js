@@ -17,14 +17,49 @@ function SupervisorTaskAssignment() {
     fetchWorkers();
   }, []);
 
+  const updateTaskStatusOnServer = async (taskId, status) => {
+    try {
+      await api.patch(`/tasks/${taskId}`, { status });
+    } catch (error) {
+      console.error(`Error updating task status for ${taskId}:`, error);
+      // We'll still update the UI even if server update fails
+    }
+  };
+
+  const checkAndUpdateTaskStatus = async (tasks) => {
+    const now = new Date();
+    const updatedTasks = [];
+    
+    for (const task of tasks) {
+      // Skip if task is already completed, overdue, or doesn't have an end date
+      if (task.status === 'completed' || task.status === 'overdue' || !task.endDate) {
+        updatedTasks.push(task);
+        continue;
+      }
+      
+      const endDate = new Date(task.endDate);
+      // If current date is past the end date, mark as overdue
+      if (now > endDate) {
+        const updatedTask = { ...task, status: 'overdue' };
+        updatedTasks.push(updatedTask);
+        // Update status on server in the background
+        updateTaskStatusOnServer(task._id, 'overdue');
+      } else {
+        updatedTasks.push(task);
+      }
+    }
+    
+    return updatedTasks;
+  };
+
   const fetchTodayTasks = async () => {
     try {
       setLoading(true);
       const response = await api.get("/tasks/supervisor-today");
       const tasksData = response.data.data || [];
-      console.log('Fetched tasks with deadline:', tasksData);
-      console.log('First task deadlineDate:', tasksData[0]?.deadline);
-      setTasks(tasksData);
+      // Update task statuses based on end date before setting state
+      const updatedTasks = await checkAndUpdateTaskStatus(tasksData);
+      setTasks(Array.isArray(updatedTasks) ? updatedTasks : []);
     } catch (error) {
       console.error("Error fetching today tasks:", error);
       setMessage("Error fetching today tasks");
@@ -270,8 +305,51 @@ function SupervisorTaskAssignment() {
                   <p style={{ margin: "0 0 10px 0", color: "#666" }}>
                     {task.description}
                   </p>
-                  <div style={{ fontSize: "13px", color: "#555" }}>
-                    <div>Schedule Date: {new Date(task.date).toLocaleDateString()}</div>
+                  <div style={{ fontSize: "13px", color: "#555", display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span>📅</span>
+                      <span>Schedule: {new Date(task.date).toLocaleString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}</span></div>
+                    {(() => {
+                      const dateField = task.deadline ? 'deadline' : 
+                                      task.dueDate ? 'dueDate' : 
+                                      task.endDate ? 'endDate' : 
+                                      task.targetDate ? 'targetDate' : null;
+                      const dateValue = task[dateField];
+                      
+                      if (!dateValue) return null;
+                      
+                      const dateLabels = {
+                        'deadline': 'Deadline',
+                        'dueDate': 'Due Date',
+                        'endDate': 'End Date',
+                        'targetDate': 'Target Date'
+                      };
+                      
+                      return (
+                        <div style={{ 
+                          color: '#d32f2f',
+                          fontWeight: '500',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '5px'
+                        }}>
+                          <span>⏰</span>
+                          <span>{dateLabels[dateField]}: {new Date(dateValue).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

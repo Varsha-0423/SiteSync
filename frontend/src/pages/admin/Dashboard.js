@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   Row,
@@ -20,7 +21,8 @@ import {
   MoreOutlined, 
   EditOutlined, 
   DeleteOutlined,
-  WarningOutlined
+  WarningOutlined,
+  EyeOutlined
 } from '@ant-design/icons';
 import { getDashboardStats, getTasks, deleteTask } from "../../services/dashboardService";
 import TaskAssignment from "../../components/TaskAssignment";
@@ -49,6 +51,7 @@ const { Title, Text } = Typography;
 
 function Dashboard() {
   console.log('Dashboard component rendering...');
+  const navigate = useNavigate();
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -197,25 +200,20 @@ function Dashboard() {
   };
 
   const getTaskActions = (task) => {
-    const menuItems = [];
-    
-    // Add worker assignment action for supervisors and admins
-    if (userRole === 'supervisor' || userRole === 'admin') {
-      menuItems.push(
-        <Menu.Item key="assign" icon={<UserAddOutlined />}>
-          <Button type="link" onClick={() => setShowWorkerModal(true)}>
-            Assign Workers
-          </Button>
-        </Menu.Item>
-      );
-    }
+    const menuItems = [
+      <Menu.Item key="view" icon={<EyeOutlined />}>
+        <Button 
+          type="link"
+          onClick={() => navigate(`/admin/tasks/${task._id}`)}
+        >
+          View Details
+        </Button>
+      </Menu.Item>
+    ];
     
     // Add edit/delete actions for admins only
     if (userRole === 'admin') {
       menuItems.push(
-        <Menu.Item key="edit" icon={<EditOutlined />}>
-          <Button type="link">Edit Task</Button>
-        </Menu.Item>,
         <Menu.Item key="delete" icon={<DeleteOutlined />} danger>
           <Button 
             type="link" 
@@ -282,43 +280,53 @@ function Dashboard() {
 
       <br />
 
-      {/* FILTERS */}
-      <Row gutter={16}>
-        <Col xs={24} sm={12}>
-          <Text strong>Filter by Status</Text>
-          <Select 
-            value={filters.status} 
-            onChange={handleStatusFilterChange}
-            style={{ width: "100%", marginTop: 5 }}
-          >
-            <Select.Option value="all">All Statuses</Select.Option>
-            <Select.Option value="on-schedule">On Schedule</Select.Option>
-            <Select.Option value="behind">Behind</Select.Option>
-            <Select.Option value="ahead">Ahead</Select.Option>
-            <Select.Option value="completed">Completed</Select.Option>
-          </Select>
+      {/* TASK PROGRESS ANALYSIS */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ borderLeft: "4px solid #52c41a" }}>
+            <Title level={3} style={{ marginBottom: 0 }}>
+              {stats?.totalTasks || 0}
+            </Title>
+            <Text>Total</Text>
+            <p style={{ marginTop: 5 }}>All tasks in system</p>
+          </Card>
         </Col>
 
-        <Col xs={24} sm={12}>
-          <Text strong>Filter by Employee</Text>
-          <Select 
-            value={filters.assignedWorker} 
-            onChange={handleWorkerFilterChange}
-            style={{ width: "100%", marginTop: 5 }}
-          >
-            <Select.Option value="all">All Employees</Select.Option>
-            {stats?.userStats?.map((userStat, index) => (
-              <Select.Option key={index} value={userStat.user}>
-                {userStat.user}
-              </Select.Option>
-            ))}
-          </Select>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ borderLeft: "4px solid #1890ff" }}>
+            <Title level={3} style={{ marginBottom: 0 }}>
+              {stats?.completedTasks || 0}
+            </Title>
+            <Text>Completed</Text>
+            <p style={{ marginTop: 5 }}>Tasks successfully finished</p>
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ borderLeft: "4px solid #ff4d4f" }}>
+            <Title level={3} style={{ marginBottom: 0 }}>
+              {stats?.issuesTasks || 0}
+            </Title>
+            <Text>Issues</Text>
+            <p style={{ marginTop: 5 }}>Tasks with problems</p>
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ borderLeft: "4px solid #faad14" }}>
+            <Title level={3} style={{ marginBottom: 0 }}>
+              {stats?.pendingTasks || 0}
+            </Title>
+            <Text>Pending</Text>
+            <p style={{ marginTop: 5 }}>Tasks not yet started</p>
+          </Card>
         </Col>
       </Row>
 
       <Divider />
 
-      {/* EMPLOYEE PERFORMANCE METRICS */}
+      {/* EMPLOYEES */}
+      <Title level={4}>Employees</Title>
       <Row gutter={[16, 16]}>
         {stats?.userStats?.slice(0, 4).map((userStat, index) => (
           <Col xs={24} sm={12} md={12} lg={6} key={index}>
@@ -335,62 +343,42 @@ function Dashboard() {
 
       <Divider />
 
-      {/* TASK PROGRESS ANALYSIS */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={8}>
-          <Card style={{ borderLeft: "4px solid #52c41a" }}>
-            <Title level={3} style={{ marginBottom: 0 }}>
-              {stats?.onScheduleTasks || 0}
-            </Title>
-            <Text>On Schedule</Text>
-            <p style={{ marginTop: 5 }}>Tasks progressing as planned</p>
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={8}>
-          <Card style={{ borderLeft: "4px solid #ff4d4f" }}>
-            <Title level={3} style={{ marginBottom: 0 }}>
-              {stats?.behindTasks || 0}
-            </Title>
-            <Text>Behind Schedule</Text>
-            <p style={{ marginTop: 5 }}>Tasks requiring attention</p>
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={8}>
-          <Card style={{ borderLeft: "4px solid #faad14" }}>
-            <Title level={3} style={{ marginBottom: 0 }}>
-              {stats?.aheadTasks || 0}
-            </Title>
-            <Text>Ahead of Schedule</Text>
-            <p style={{ marginTop: 5 }}>Tasks exceeding expectations</p>
-          </Card>
-        </Col>
-      </Row>
-
-      <Divider />
-
       {/* ALL TASKS */}
-      <Row align="middle" justify="space-between">
-        <Title level={4}>All Tasks ({tasks.length})</Title>
-        <div>
+      <Row align="middle" justify="space-between" style={{ marginBottom: 16 }}>
+        <Title level={4} style={{ margin: 0 }}>All Tasks ({tasks.length})</Title>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Select 
+            value={filters.status} 
+            onChange={handleStatusFilterChange}
+            style={{ width: 150 }}
+            placeholder="Filter by Status"
+          >
+            <Select.Option value="all">All Statuses</Select.Option>
+            <Select.Option value="on-schedule">On Schedule</Select.Option>
+            <Select.Option value="behind">Behind</Select.Option>
+            <Select.Option value="ahead">Ahead</Select.Option>
+            <Select.Option value="completed">Completed</Select.Option>
+          </Select>
+          <Select 
+            value={filters.assignedWorker} 
+            onChange={handleWorkerFilterChange}
+            style={{ width: 150 }}
+            placeholder="Filter by Employee"
+          >
+            <Select.Option value="all">All Employees</Select.Option>
+            {stats?.userStats?.map((userStat, index) => (
+              <Select.Option key={index} value={userStat.user}>
+                {userStat.user}
+              </Select.Option>
+            ))}
+          </Select>
           {userRole === 'admin' && (
             <Button 
               type="primary" 
               icon={<PlusOutlined />}
               onClick={() => setShowTaskModal(true)}
-              style={{ marginRight: 8 }}
             >
               Create Task
-            </Button>
-          )}
-          {(userRole === 'supervisor' || userRole === 'admin') && (
-            <Button 
-              icon={<UserAddOutlined />}
-              onClick={() => setShowWorkerModal(true)}
-              style={{ marginRight: 8 }}
-            >
-              Assign Workers
             </Button>
           )}
           <Button type="default" onClick={fetchDashboardData} loading={loading}>
@@ -429,7 +417,6 @@ function Dashboard() {
                   <Button 
                     type="primary" 
                     style={{ 
-                      marginBottom: 10,
                       backgroundColor: getStatusColor(task.status),
                       borderColor: getStatusColor(task.status)
                     }}
@@ -438,8 +425,6 @@ function Dashboard() {
                   </Button>
                   {getTaskActions(task)}
                 </div>
-                <Progress percent={task.progress || 0} showInfo />
-                <Button style={{ marginTop: 10 }}>View Details</Button>
               </Col>
             </Row>
           </Card>
