@@ -426,10 +426,17 @@ const uploadExcel = async (req, res) => {
       
       try {
         const activityId = row['activityId'] || '';
-        const activityName = row['activityName'] || '';
-        const startDate = row['startDate'] || '';
-        const endDate = row['endDate'] || '';
-        const remarks = row['remarks'] || '';
+        const activityName = row['activityName'] || row['Activity Name'] || '';
+        const startDate = row['startDate'] || row['Start Date'] || '';
+        const endDate = row['endDate'] || row['End Date'] || '';
+        const remarks = row['remarks'] || row['Remarks'] || '';
+        const strategy = row['strategy'] || row['Strategy'] || '';
+        const budgetedQuantity = parseFloat(row['budgetedQuantity'] || row['Budgeted Quantity'] || 0);
+        const prelimsStaffs = parseFloat(row['prelimsStaffs'] || row['Prelims Staffs'] || 0);
+        const overheadStaffs = parseFloat(row['overheadStaffs'] || row['Overhead Staffs'] || 0);
+        const material = parseFloat(row['material'] || row['Material'] || 0);
+        const equipment = parseFloat(row['equipment'] || row['Equipment'] || 0);
+        const manpower = parseFloat(row['manpower'] || row['Manpower'] || 0);
         
         // Check required fields
         if (!activityId || !activityName || !startDate || !endDate) {
@@ -486,6 +493,13 @@ const uploadExcel = async (req, res) => {
           endDate: parsedEndDate,
           priority: 'medium',
           status: 'pending',
+          strategy,
+          budgetedQuantity: isNaN(budgetedQuantity) ? 0 : budgetedQuantity,
+          prelimsStaffs: isNaN(prelimsStaffs) ? 0 : prelimsStaffs,
+          overheadStaffs: isNaN(overheadStaffs) ? 0 : overheadStaffs,
+          material: isNaN(material) ? 0 : material,
+          equipment: isNaN(equipment) ? 0 : equipment,
+          manpower: isNaN(manpower) ? 0 : manpower,
           createdBy: req.user._id
         };
 
