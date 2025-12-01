@@ -207,7 +207,16 @@ const createTask = async (req, res) => {
       priority, 
       status, 
       isForToday, 
-      supervisor 
+      supervisor,
+      activityId,
+      remarks,
+      strategy,
+      budgetedQuantity,
+      prelimsStaffs,
+      overheadStaffs,
+      material,
+      equipment,
+      manpower
     } = req.body;
 
     const task = await Task.create({
@@ -221,7 +230,16 @@ const createTask = async (req, res) => {
       priority: priority || 'medium',
       status: status || 'pending',
       isForToday: isForToday || false,
-      supervisor
+      supervisor,
+      activityId: activityId || '',
+      remarks: remarks || 'N/A',
+      strategy: strategy || '',
+      budgetedQuantity: parseFloat(budgetedQuantity) || 0,
+      prelimsStaffs: parseFloat(prelimsStaffs) || 0,
+      overheadStaffs: parseFloat(overheadStaffs) || 0,
+      material: parseFloat(material) || 0,
+      equipment: parseFloat(equipment) || 0,
+      manpower: parseFloat(manpower) || 0
     });
 
     res.status(201).json({
@@ -265,6 +283,22 @@ const updateTask = async (req, res) => {
     
     // Create a copy of the request body to modify
     const updateData = { ...req.body };
+    
+    // Parse numeric fields to ensure they're stored as numbers
+    const numericFields = [
+      'budgetedQuantity',
+      'prelimsStaffs',
+      'overheadStaffs',
+      'material',
+      'equipment',
+      'manpower'
+    ];
+    
+    numericFields.forEach(field => {
+      if (updateData[field] !== undefined) {
+        updateData[field] = parseFloat(updateData[field]) || 0;
+      }
+    });
     
     // Handle assignedWorkers if it exists in the request
     if (updateData.assignedWorkers) {
@@ -363,6 +397,56 @@ const getDashboardStats = async (req, res) => {
     const issuesTasks = await Task.countDocuments({ status: 'behind' });
     const pendingTasks = await Task.countDocuments({ status: 'pending' });
     
+    // Get all tasks with budget data
+    const tasks = await Task.find({}, 'prelimsStaffs overheadStaffs material equipment manpower taskName');
+    
+    // Calculate budget statistics
+    let totalBudget = 0;
+    let categoryTotals = {
+      prelimsStaffs: 0,
+      overheadStaffs: 0,
+      material: 0,
+      equipment: 0,
+      manpower: 0
+    };
+    
+    tasks.forEach(task => {
+      const taskBudget = (task.prelimsStaffs || 0) + 
+                        (task.overheadStaffs || 0) + 
+                        (task.material || 0) + 
+                        (task.equipment || 0) + 
+                        (task.manpower || 0);
+      
+      totalBudget += taskBudget;
+      
+      // Sum up each category
+      categoryTotals.prelimsStaffs += task.prelimsStaffs || 0;
+      categoryTotals.overheadStaffs += task.overheadStaffs || 0;
+      categoryTotals.material += task.material || 0;
+      categoryTotals.equipment += task.equipment || 0;
+      categoryTotals.manpower += task.manpower || 0;
+    });
+    
+    // Find the most expensive task
+    const mostExpensiveTask = tasks.reduce((max, task) => {
+      const taskBudget = (task.prelimsStaffs || 0) + 
+                        (task.overheadStaffs || 0) + 
+                        (task.material || 0) + 
+                        (task.equipment || 0) + 
+                        (task.manpower || 0);
+      
+      if (taskBudget > (max.budget || 0)) {
+        return { name: task.taskName, budget: taskBudget };
+      }
+      return max;
+    }, { name: '', budget: 0 });
+    
+    // Find the most expensive category
+    const mostExpensiveCategory = Object.entries(categoryTotals).reduce(
+      (max, [category, amount]) => (amount > (max.amount || 0) ? { category, amount } : max),
+      { category: '', amount: 0 }
+    );
+    
     const users = await User.find({ role: 'worker' }).select('name');
     const userStats = await Promise.all(
       users.map(async (user) => {
@@ -381,7 +465,17 @@ const getDashboardStats = async (req, res) => {
         completedTasks,
         issuesTasks,
         pendingTasks,
-        userStats
+        userStats,
+        budgetStats: {
+          totalBudget,
+          avgBudgetPerTask: totalBudget / (tasks.length || 1),
+          mostExpensiveTask,
+          mostExpensiveCategory: {
+            name: mostExpensiveCategory.category,
+            amount: mostExpensiveCategory.amount
+          },
+          categoryTotals
+        }
       }
     });
   } catch (error) {

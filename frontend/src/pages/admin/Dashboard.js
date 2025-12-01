@@ -7,21 +7,16 @@ import {
   Typography,
   Select,
   Divider,
-  Progress,
-  Button,
   Spin,
+  Button,
   message,
   Dropdown,
-  Menu,
-  Alert
+  Menu
 } from "antd";
 import { 
   PlusOutlined, 
-  UserAddOutlined, 
   MoreOutlined, 
-  EditOutlined, 
-  DeleteOutlined,
-  WarningOutlined,
+  DeleteOutlined, 
   EyeOutlined
 } from '@ant-design/icons';
 import { getDashboardStats, getTasks, deleteTask } from "../../services/dashboardService";
@@ -55,7 +50,6 @@ function Dashboard() {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [userRole, setUserRole] = useState('admin'); // replace with auth context
-  const [showDebug, setShowDebug] = useState(process.env.NODE_ENV === 'development');
 
   useEffect(() => {
     fetchDashboardData();
@@ -70,8 +64,7 @@ function Dashboard() {
 
       const data = response.data || response;
 
-      setStats(prev => ({
-        ...prev,
+      setStats({
         totalTasks: data.totalTasks || 0,
         onScheduleTasks: data.onScheduleTasks || 0,
         behindTasks: data.behindTasks || 0,
@@ -80,7 +73,7 @@ function Dashboard() {
         issuesTasks: data.issuesTasks || 0,
         pendingTasks: data.pendingTasks || 0,
         userStats: data.userStats || []
-      }));
+      });
 
       const taskFilters = {};
       if (filters.status !== 'all') taskFilters.status = filters.status;
@@ -163,6 +156,42 @@ function Dashboard() {
     return <div style={{ padding: "20px", textAlign: "center" }}><Spin size="large" /></div>;
   }
 
+  // ---------------- Budget Analysis ----------------
+  // Use backend-calculated budget stats if available, otherwise calculate on frontend
+  const budgetStats = stats?.budgetStats || {
+    totalBudget: 0,
+    avgBudgetPerTask: 0,
+    mostExpensiveTask: { name: '', budget: 0 },
+    mostExpensiveCategory: { name: '', amount: 0 },
+    categoryTotals: {
+      prelimsStaffs: 0,
+      overheadStaffs: 0,
+      material: 0,
+      equipment: 0,
+      manpower: 0
+    }
+  };
+
+  // Format category totals for the pie chart
+  const categoryTotals = [
+    { name: 'Prelims Staffs', value: budgetStats.categoryTotals.prelimsStaffs || 0 },
+    { name: 'Overheads', value: budgetStats.categoryTotals.overheadStaffs || 0 },
+    { name: 'Material', value: budgetStats.categoryTotals.material || 0 },
+    { name: 'Equipment', value: budgetStats.categoryTotals.equipment || 0 },
+    { name: 'Manpower', value: budgetStats.categoryTotals.manpower || 0 }
+  ];
+
+  // Process tasks for the budget per task chart
+  const processedTasks = tasks.map(task => ({
+    ...task,
+    totalBudget: (task.prelimsStaffs || 0) + 
+                (task.overheadStaffs || 0) + 
+                (task.material || 0) + 
+                (task.equipment || 0) + 
+                (task.manpower || 0)
+  }));
+
+  // ---------------- JSX ----------------
   return (
     <div style={{ padding: "20px" }}>
       {/* PAGE TITLE */}
@@ -206,71 +235,73 @@ function Dashboard() {
       </Row>
 
       <Divider />
-
-      {/* EMPLOYEES */}
-      <Title level={4}>Employees</Title>
-      <Row gutter={[16, 16]}>
-        {stats?.userStats?.slice(0, 4).map((userStat, index) => (
-          <Col xs={24} sm={12} md={12} lg={6} key={index}>
-            <Card>
-              <Title level={3} style={{ margin: 0 }}>{userStat.totalTasks}</Title>
-              <Text>Total Tasks</Text> <br />
-              <Text type="secondary">{userStat.user}</Text>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-
-      <Divider />
-
-      {/* DASHBOARD CHARTS */}
-      <Row gutter={[16, 16]}>
+      {/* --------- BUDGET CHARTS --------- */}
+      <Row gutter={[16, 16]} style={{ marginTop: 20 }}>
         <Col xs={24} md={12}>
-          <Card title="Task Completion Overview">
-            <Bar 
+          <Card title="Budget Distribution by Category">
+            <Pie
               data={{
-                labels: ['On Schedule', 'Behind', 'Ahead', 'Completed'],
-                datasets: [
-                  {
-                    label: 'Tasks',
-                    data: [
-                      stats.onScheduleTasks || 0,
-                      stats.behindTasks || 0,
-                      stats.aheadTasks || 0,
-                      stats.completedTasks || 0
-                    ],
-                    backgroundColor: ['#52c41a','#ff4d4f','#faad14','#1890ff'],
-                  },
-                ],
-              }}
-              options={{ responsive: true, plugins: { legend: { display: false } } }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} md={12}>
-          <Card title="Task Status Distribution">
-            <Pie 
-              data={{
-                labels: ['On Schedule', 'Behind', 'Ahead', 'Completed'],
-                datasets: [
-                  {
-                    data: [
-                      stats.onScheduleTasks || 0,
-                      stats.behindTasks || 0,
-                      stats.aheadTasks || 0,
-                      stats.completedTasks || 0
-                    ],
-                    backgroundColor: ['#52c41a','#ff4d4f','#faad14','#1890ff'],
-                    borderWidth: 1,
-                  },
-                ],
+                labels: categoryTotals.map(c => c.name),
+                datasets: [{
+                  data: categoryTotals.map(c => c.value),
+                  backgroundColor: ['#1890ff','#52c41a','#faad14','#ff4d4f','#722ed1'],
+                  borderWidth: 1
+                }]
               }}
               options={{ responsive: true }}
             />
           </Card>
         </Col>
+        <Col xs={24} md={12}>
+          <Card title="Budget per Task">
+            <Bar
+              data={{
+                labels: processedTasks.map(t => t.taskName),
+                datasets: [{
+                  label: 'Total Budget',
+                  data: processedTasks.map(t => t.totalBudget),
+                  backgroundColor: '#1890ff'
+                }]
+              }}
+              options={{ responsive: true, plugins: { legend: { display: false } } }}
+            />
+          </Card>
+        </Col>
       </Row>
 
+{/* --------- BUDGET ANALYSIS --------- */}
+      <Title level={4}>Budget Analysis</Title>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ borderLeft: "4px solid #1890ff" }}>
+            <Title level={3} style={{ marginBottom: 0 }}>₹{budgetStats.totalBudget.toLocaleString()}</Title>
+            <Text>Total Budget</Text>
+            <p style={{ marginTop: 5 }}>Sum of all tasks</p>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ borderLeft: "4px solid #52c41a" }}>
+            <Title level={3} style={{ marginBottom: 0 }}>₹{Math.round(budgetStats.avgBudgetPerTask).toLocaleString()}</Title>
+            <Text>Average Task</Text>
+            <p style={{ marginTop: 5 }}>Average budget per task</p>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ borderLeft: "4px solid #faad14" }}>
+            <Title level={3} style={{ marginBottom: 0 }}>{budgetStats.mostExpensiveTask.name || '-'}</Title>
+            <Text>Highest Budget Task</Text>
+            <p style={{ marginTop: 5 }}>₹{budgetStats.mostExpensiveTask.budget?.toLocaleString() || 0}</p>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <Card style={{ borderLeft: "4px solid #ff4d4f" }}>
+            <Title level={3} style={{ marginBottom: 0 }}>{budgetStats.mostExpensiveCategory.name || '-'}</Title>
+            <Text>Most Expensive Category</Text>
+            <p style={{ marginTop: 5 }}>₹{budgetStats.mostExpensiveCategory.amount?.toLocaleString() || 0}</p>
+          </Card>
+        </Col>
+      </Row>
+      
       <Divider />
 
       {/* ALL TASKS */}
