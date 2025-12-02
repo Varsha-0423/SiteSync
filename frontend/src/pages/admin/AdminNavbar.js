@@ -42,7 +42,7 @@ const AdminNavbar = () => {
   const userMenu = (
     <Menu>
       <Menu.Item key="profile" icon={<ProfileOutlined />}>
-        <NavLink to="/admin/profile">My Profile</NavLink>
+        <NavLink to="/profile">My Profile</NavLink>
       </Menu.Item>
       <Menu.Divider />
       <Menu.Item key="logout" icon={<LogoutOutlined />} onClick={handleLogout}>

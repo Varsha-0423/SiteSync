@@ -410,7 +410,7 @@ function Dashboard() {
           </Col>
           <Col>
             <Space>
-              <Button icon={<ReloadOutlined />} onClick={fetchDashboardData}>Refresh</Button>
+              <Button icon={<ReloadOutlined />} onClick={fetchDashboardData}></Button>
               {userRole === "admin" && <Button type="primary" icon={<PlusOutlined />} onClick={() => setShowTaskModal(true)}>Create Task</Button>}
             </Space>
           </Col>
@@ -515,31 +515,31 @@ function Dashboard() {
       <Title level={4}>Budget Analysis</Title>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #1890ff" }}>
-            <Title level={3} style={{ marginBottom: 0 }}>AED {Number(displayTotals.totalBudget || 0).toLocaleString()}</Title>
-            <Text>Total Budget</Text>
-            <p style={{ marginTop: 6 }}>Sum of all tasks</p>
+          <Card style={{ borderLeft: "4px solid #1890ff", textAlign: 'center' }}>
+            <Text strong>Total Budget</Text>
+            <Title level={3} style={{ margin: '8px 0' }}>AED {Number(displayTotals.totalBudget || 0).toLocaleString()}</Title>
+            <Text type="secondary">Sum of all tasks</Text>
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #52c41a" }}>
-            <Title level={3} style={{ marginBottom: 0 }}>AED {Math.round(Number(displayTotals.avgBudgetPerTask || 0)).toLocaleString()}</Title>
-            <Text>Average Task</Text>
-            <p style={{ marginTop: 6 }}>Average budget per task</p>
+          <Card style={{ borderLeft: "4px solid #52c41a", textAlign: 'center' }}>
+            <Text strong>Average Task</Text>
+            <Title level={3} style={{ margin: '8px 0' }}>AED {Math.round(Number(displayTotals.avgBudgetPerTask || 0)).toLocaleString()}</Title>
+            <Text type="secondary">Average budget per task</Text>
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #faad14" }}>
-            <Title level={4} style={{ marginBottom: 0 }}>{displayTotals.mostExpensiveTask?.name || "-"}</Title>
-            <Text>Highest Budget Task</Text>
-            <p style={{ marginTop: 6 }}>AED {Number(displayTotals.mostExpensiveTask?.budget || 0).toLocaleString()}</p>
+          <Card style={{ borderLeft: "4px solid #faad14", textAlign: 'center' }}>
+            <Text strong>Highest Budget Task</Text>
+            <Title level={3} style={{ margin: '8px 0' }}>AED {Number(displayTotals.mostExpensiveTask?.budget || 0).toLocaleString()}</Title>
+            <Text type="secondary">{displayTotals.mostExpensiveTask?.name || "-"}</Text>
           </Card>
         </Col>
         <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #ff4d4f" }}>
-            <Title level={4} style={{ marginBottom: 0 }}>{displayTotals.mostExpensiveCategory?.name || "-"}</Title>
-            <Text>Most Expensive Category</Text>
-            <p style={{ marginTop: 6 }}>AED {Number(displayTotals.mostExpensiveCategory?.amount || 0).toLocaleString()}</p>
+          <Card style={{ borderLeft: "4px solid #ff4d4f", textAlign: 'center' }}>
+            <Text strong>Most Expensive Category</Text>
+            <Title level={3} style={{ margin: '8px 0' }}>AED {Number(displayTotals.mostExpensiveCategory?.amount || 0).toLocaleString()}</Title>
+            <Text type="secondary">{displayTotals.mostExpensiveCategory?.name || "-"}</Text>
           </Card>
         </Col>
       </Row>
