@@ -486,6 +486,7 @@ const getDashboardStats = async (req, res) => {
     });
   }
 };
+
 // @route   POST /api/tasks/upload-excel
 // @access  Private/Admin
 const uploadExcel = async (req, res) => {
@@ -508,7 +509,6 @@ const uploadExcel = async (req, res) => {
     const createdTasks = [];
     const errors = [];
     
-    // Month name to number mapping
     const monthMap = {
       'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
       'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
@@ -519,35 +519,28 @@ const uploadExcel = async (req, res) => {
       const rowNum = i + 2;
       
       try {
-        const activityId = row['activityId'] || '';
-        const activityName = row['activityName'] || row['Activity Name'] || '';
-        const startDate = row['startDate'] || row['Start Date'] || '';
-        const endDate = row['endDate'] || row['End Date'] || '';
-        const remarks = row['remarks'] || row['Remarks'] || '';
-        const strategy = row['strategy'] || row['Strategy'] || '';
-        const budgetedQuantity = parseFloat(row['budgetedQuantity'] || row['Budgeted Quantity'] || 0);
-        const prelimsStaffs = parseFloat(row['prelimsStaffs'] || row['Prelims Staffs'] || 0);
-        const overheadStaffs = parseFloat(row['overheadStaffs'] || row['Overhead Staffs'] || 0);
-        const material = parseFloat(row['material'] || row['Material'] || 0);
-        const equipment = parseFloat(row['equipment'] || row['Equipment'] || 0);
-        const manpower = parseFloat(row['manpower'] || row['Manpower'] || 0);
+        const activityId = row['Activity ID'] || '';
+        const activityName = row['Activity Name'] || '';
+        const startDate = row['Start Date'] || '';
+        const endDate = row['End Date'] || '';
+        const remarks = row['Remarks'] || 'N/A';
+        const strategy = row['Strategy'] || '';
         
-        // Check required fields
-        if (!activityId || !activityName || !startDate || !endDate) {
-          throw new Error('Missing required fields: activityId, activityName, startDate, or endDate');
-        }
+        const budgetedQuantity = Number(row['Budgeted Quantity']) || 0;
+        const prelimsStaffs = Number(row['Prelims Staffs']) || 0;
+        const overheadStaffs = Number(row['Overhead Staffs']) || 0;
+        const material = Number(row['Material']) || 0;
+        const equipment = Number(row['Equipment']) || 0;
+        const manpower = Number(row['Manpower']) || 0;
 
-        // Parse dates from DD-Mon-YY format or Excel serial number
         const parseExcelDate = (dateStr) => {
           if (!dateStr) return null;
           
-          // Handle Excel serial date numbers
           if (typeof dateStr === 'number') {
             const excelEpoch = new Date(1899, 11, 30);
             return new Date(excelEpoch.getTime() + dateStr * 86400000);
           }
           
-          // Handle DD-Mon-YY format
           const excelDateMatch = String(dateStr).match(/^(\d{1,2})-(\w{3})-(\d{2})$/);
           if (excelDateMatch) {
             const [, day, monthStr, yearShort] = excelDateMatch;
@@ -566,34 +559,30 @@ const uploadExcel = async (req, res) => {
         const parsedEndDate = parseExcelDate(endDate);
         
         if (!parsedStartDate || isNaN(parsedStartDate.getTime())) {
-          throw new Error(`Invalid start date format: ${startDate}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
+          throw new Error(`Invalid start date: ${startDate}`);
         }
         
         if (!parsedEndDate || isNaN(parsedEndDate.getTime())) {
-          throw new Error(`Invalid end date format: ${endDate}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
-        }
-        
-        if (parsedEndDate < parsedStartDate) {
-          throw new Error(`End date cannot be before start date`);
+          throw new Error(`Invalid end date: ${endDate}`);
         }
 
         const taskData = {
-          activityId,
-          taskName: activityName,
-          description: activityName,
-          remarks: remarks || 'N/A',
+          activityId: activityId || `TASK-${Date.now()}-${i}`,
+          taskName: activityName || 'Untitled Task',
+          description: activityName || 'No description',
+          remarks,
           date: parsedStartDate,
           startDate: parsedStartDate,
           endDate: parsedEndDate,
           priority: 'medium',
           status: 'pending',
           strategy,
-          budgetedQuantity: isNaN(budgetedQuantity) ? 0 : budgetedQuantity,
-          prelimsStaffs: isNaN(prelimsStaffs) ? 0 : prelimsStaffs,
-          overheadStaffs: isNaN(overheadStaffs) ? 0 : overheadStaffs,
-          material: isNaN(material) ? 0 : material,
-          equipment: isNaN(equipment) ? 0 : equipment,
-          manpower: isNaN(manpower) ? 0 : manpower,
+          budgetedQuantity,
+          prelimsStaffs,
+          overheadStaffs,
+          material,
+          equipment,
+          manpower,
           createdBy: req.user._id
         };
 
@@ -637,7 +626,6 @@ const uploadExcel = async (req, res) => {
 // @access  Private/Admin
 const getTodayTasks = async (req, res) => {
   try {
-    // Get tasks marked for today, handle cases where field might not exist
     const tasks = await Task.find({ isForToday: true })
       .sort({ createdAt: -1 });
 
@@ -657,12 +645,9 @@ const getTodayTasks = async (req, res) => {
 // @access  Private/Supervisor
 const getSupervisorTodayTasks = async (req, res) => {
   try {
-    // Get tasks marked for today for supervisor assignment
     const tasks = await Task.find({ isForToday: true })
       .populate('assignedWorkers', 'name email')
       .sort({ createdAt: -1 });
-
-    console.log('Supervisor tasks with deadlineDate:', tasks.map(t => ({ id: t._id, deadlineDate: t.deadlineDate })));
 
     res.json({
       success: true,
@@ -681,9 +666,7 @@ const getSupervisorTodayTasks = async (req, res) => {
 const updateTodayTasks = async (req, res) => {
   try {
     const { taskIds, date, deadline, supervisorId } = req.body;
-    console.log('updateTodayTasks received:', { taskIds, date, deadline, supervisorId, fullBody: req.body });
     
-    // Validate required fields
     if (!taskIds || !Array.isArray(taskIds)) {
       return res.status(400).json({ 
         success: false,
@@ -691,28 +674,23 @@ const updateTodayTasks = async (req, res) => {
       });
     }
 
-    // Start a session for transaction
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      // 1. First, reset all tasks to not be for today
       await Task.updateMany(
         {},
         { $set: { isForToday: false } },
         { session }
       );
 
-      // 2. Update the selected tasks to be for today
       if (taskIds.length > 0) {
-        // Ensure supervisorId is a valid ObjectId if provided
         const updateData = {
           isForToday: true,
           ...(date && { startDate: date }),
           ...(deadline && { deadline })
         };
         
-        // Only add supervisor if it's a valid ID
         if (supervisorId && mongoose.Types.ObjectId.isValid(supervisorId)) {
           updateData.supervisor = supervisorId;
         }
@@ -724,11 +702,9 @@ const updateTodayTasks = async (req, res) => {
         );
       }
 
-      // Commit the transaction
       await session.commitTransaction();
       session.endSession();
 
-      // 3. Get the updated list of today's tasks
       const todayTasks = await Task.find({ _id: { $in: taskIds } })
         .populate('supervisor', 'name email')
         .populate('assignedWorkers', 'name email');
@@ -740,16 +716,14 @@ const updateTodayTasks = async (req, res) => {
       });
 
     } catch (error) {
-      // If an error occurred, abort the transaction
       await session.abortTransaction();
       session.endSession();
-      throw error; // This will be caught by the outer catch block
+      throw error;
     }
 
   } catch (error) {
     console.error('Error updating today tasks:', error);
     
-    // Handle specific error types
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => ({
         field: err.path,
@@ -780,7 +754,6 @@ const updateTodayTasks = async (req, res) => {
   }
 };
 
-// Export all functions
 module.exports = {
   getTasks,
   createTask,
