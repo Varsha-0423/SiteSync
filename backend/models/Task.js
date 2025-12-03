@@ -24,6 +24,35 @@ const taskSchema = new mongoose.Schema({
     trim: true,
     default: 'N/A'
   },
+  strategy: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  budgetedQuantity: {
+    type: Number,
+    default: 0
+  },
+  prelimsStaffs: {
+    type: Number,
+    default: 0
+  },
+  overheadStaffs: {
+    type: Number,
+    default: 0
+  },
+  material: {
+    type: Number,
+    default: 0
+  },
+  equipment: {
+    type: Number,
+    default: 0
+  },
+  manpower: {
+    type: Number,
+    default: 0
+  },
   date: { 
     type: Date, 
     required: [true, 'Task date is required'] 

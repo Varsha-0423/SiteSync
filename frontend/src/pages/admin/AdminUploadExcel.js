@@ -151,7 +151,7 @@ function AdminUploadExcel() {
       title: 'Activity ID',
       dataIndex: 'activityId',
       key: 'activityId',
-      width: 250,
+      width: 200,
     },
     {
       title: 'Activity Name',
@@ -178,6 +178,48 @@ function AdminUploadExcel() {
       dataIndex: 'remarks',
       key: 'remarks',
       width: 200,
+    },
+    {
+      title: 'Strategy',
+      dataIndex: 'strategy',
+      key: 'strategy',
+      width: 180,
+    },
+    {
+      title: 'Budgeted Qty',
+      dataIndex: 'budgetedQuantity',
+      key: 'budgetedQuantity',
+      width: 120,
+    },
+    {
+      title: 'Prelims Staffs',
+      dataIndex: 'prelimsStaffs',
+      key: 'prelimsStaffs',
+      width: 120,
+    },
+    {
+      title: 'Overhead Staffs',
+      dataIndex: 'overheadStaffs',
+      key: 'overheadStaffs',
+      width: 140,
+    },
+    {
+      title: 'Material',
+      dataIndex: 'material',
+      key: 'material',
+      width: 100,
+    },
+    {
+      title: 'Equipment',
+      dataIndex: 'equipment',
+      key: 'equipment',
+      width: 100,
+    },
+    {
+      title: 'Manpower',
+      dataIndex: 'manpower',
+      key: 'manpower',
+      width: 100,
     },
   ];
 
@@ -279,18 +321,32 @@ function AdminUploadExcel() {
   const createTaskTemplate = () => {
     const templateData = [
       {
-        activityId: 'PI-CN-P1-SS-Sup-1080',
-        activityName: 'Trench Works',
-        startDate: '25-Oct-25',
-        endDate: '07-Nov-25',
-        remarks: 'na'
+        'Activity ID': 'PI-CN-P1-SS-Sup-1080',
+        'Activity Name': 'Trench Works',
+        'Start Date': '25-Oct-25',
+        'End Date': '07-Nov-25',
+        'Remarks': 'na',
+        'Strategy': 'Direct Labor',
+        'Budgeted Quantity': 100,
+        'Prelims Staffs': 5,
+        'Overhead Staffs': 2,
+        'Material': 5000,
+        'Equipment': 3000,
+        'Manpower': 2000
       },
       {
-        activityId: 'PI-CN-P1-SS-Sup-1081',
-        activityName: 'Cable Installation',
-        startDate: '08-Nov-25',
-        endDate: '15-Nov-25',
-        remarks: 'Priority task'
+        'Activity ID': 'PI-CN-P1-SS-Sup-1081',
+        'Activity Name': 'Cable Installation',
+        'Start Date': '08-Nov-25',
+        'End Date': '15-Nov-25',
+        'Remarks': 'Priority task',
+        'Strategy': 'Subcontract',
+        'Budgeted Quantity': 50,
+        'Prelims Staffs': 3,
+        'Overhead Staffs': 1,
+        'Material': 3000,
+        'Equipment': 1000,
+        'Manpower': 1500
       }
     ];
 
@@ -334,9 +390,28 @@ function AdminUploadExcel() {
         <div style={{ marginTop: '20px', backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '4px' }}>
           <h4>Excel File Requirements:</h4>
           <ul>
-            <li>Required columns: <strong>activityId, activityName, startDate, endDate</strong></li>
-            <li>Optional column: <strong>remarks</strong></li>
-            <li>Date format: DD-Mon-YY (e.g., 25-Oct-25)</li>
+            <li><strong>Required columns:</strong> 
+              <ul style={{ margin: '5px 0 0 20px' }}>
+                <li>Activity ID</li>
+                <li>Activity Name</li>
+                <li>Start Date</li>
+                <li>End Date</li>
+              </ul>
+            </li>
+            <li><strong>Budget & Resource Columns:</strong>
+              <ul style={{ margin: '5px 0 0 20px' }}>
+                <li>Strategy</li>
+                <li>Budgeted Quantity</li>
+                <li>Prelims Staffs</li>
+                <li>Overhead Staffs</li>
+                <li>Material</li>
+                <li>Equipment</li>
+                <li>Manpower</li>
+              </ul>
+            </li>
+            <li><strong>Optional:</strong> Remarks</li>
+            <li><strong>Date format:</strong> DD-Mon-YY (e.g., 25-Oct-25)</li>
+            <li><strong>Note:</strong> Budget and resource fields should be numbers only</li>
           </ul>
           <Button type="link" onClick={createTaskTemplate} style={{ padding: 0 }}>
             Download Template

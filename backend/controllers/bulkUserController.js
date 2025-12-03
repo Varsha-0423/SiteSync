@@ -45,18 +45,6 @@ exports.processBulkUpload = async (req, res) => {
     const worksheet = workbook.Sheets[sheetName];
     const data = xlsx.utils.sheet_to_json(worksheet);
 
-    // Validate required columns
-    const requiredColumns = ['name', 'email', 'role'];
-    const headers = Object.keys(data[0] || {});
-    const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-
-    if (missingColumns.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Missing required columns: ${missingColumns.join(', ')}`,
-      });
-    }
-
     // Process each row
     const results = {
       total: data.length,
@@ -70,22 +58,25 @@ exports.processBulkUpload = async (req, res) => {
       const rowNumber = i + 2; // +2 because Excel is 1-indexed and we have a header row
 
       try {
-        // Check if user already exists
-        const existingUser = await User.findOne({ email: row.email });
+        const name = row['Emp Name'] || row.name || `Worker-${code || 'user'}`;
+        const code = row.Code || row.code;
+        const email = row.email || `${code}@worker.com`;
+        const role = row.role ? row.role.toLowerCase() : 'worker';
+
+        const existingUser = await User.findOne({ email });
 
         if (existingUser) {
-          results.errors.push(`Row ${rowNumber}: User with email ${row.email} already exists`);
+          results.errors.push(`Row ${rowNumber}: User with email ${email} already exists`);
           continue;
         }
 
-        // Create new user
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash('defaultPassword123', salt);
 
         const newUser = new User({
-          name: row.name,
-          email: row.email,
-          role: row.role.toLowerCase(),
+          name,
+          email,
+          role,
           password: hashedPassword,
         });
 
@@ -93,9 +84,19 @@ exports.processBulkUpload = async (req, res) => {
         results.success++;
         createdUsers.push({
           _id: newUser._id,
+          code,
           name: newUser.name,
           email: newUser.email,
-          role: newUser.role
+          role: newUser.role,
+          division: row.Division,
+          payrollMonth: row['Payroll Month'],
+          designation: row.Designation,
+          job: row.Job,
+          daysAttended: row.DaysAttended,
+          otHours: row['OT Hours'],
+          netSalary: row.NetSalary,
+          fixedCost: row['Fixed Cost'],
+          totalCost: row['Total cost']
         });
       } catch (error) {
         results.errors.push(`Row ${rowNumber}: ${error.message || 'Error processing this row'}`);

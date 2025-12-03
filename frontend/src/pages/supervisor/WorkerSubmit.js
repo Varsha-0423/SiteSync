@@ -14,16 +14,32 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
   const [workers, setWorkers] = useState([]);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [isLoading, setIsLoading] = useState(true);
+  const [workerSearch, setWorkerSearch] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
 
   // Fetch workers list if not a supervisor
   useEffect(() => {
     const fetchData = async () => {
       try {
         if (!isSupervisor) {
+          // Fetch task details to get assigned workers
+          const taskResponse = await api.get(`/tasks/${taskId}`);
+          const taskData = taskResponse.data.data || taskResponse.data;
+          const assignedWorkerIds = (taskData.assignedWorkers || []).map(w => 
+            typeof w === "object" && w._id ? w._id : w
+          );
+          
+          // Fetch all workers
           const response = await api.get("/users?role=worker");
-          const workersData = response.data.data || [];
-          console.log('Fetched workers:', workersData);
-          setWorkers(workersData);
+          const allWorkers = response.data.data || [];
+          
+          // Filter to show only assigned workers
+          const assignedWorkers = allWorkers.filter(worker => 
+            assignedWorkerIds.includes(worker._id || worker.id)
+          );
+          
+          console.log('Assigned workers:', assignedWorkers);
+          setWorkers(assignedWorkers);
         } else {
           // For supervisor, set the current user as the worker
           const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -43,7 +59,7 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
     };
 
     fetchData();
-  }, [isSupervisor]);
+  }, [isSupervisor, taskId]);
 
   const units = [
     { value: "kg", label: "Kilograms (kg)" },
@@ -254,25 +270,55 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
     return <div>Loading workers...</div>;
   }
 
+  if (!isSupervisor && workers.length === 0) {
+    return <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>No workers assigned to this task.</div>;
+  }
+
   return (
     <form onSubmit={handleSubmit} style={{ maxWidth: '600px', margin: '0 auto' }}>
       {/* Worker Selection */}
-      <div>
+      <div style={{ position: 'relative' }}>
         <label style={labelStyle}>Select Worker *</label>
-        <select 
-          name="worker"
-          value={formData.worker}
-          onChange={handleChange}
+        <input
+          type="text"
+          placeholder="Search and select worker..."
+          value={workerSearch}
+          onChange={(e) => setWorkerSearch(e.target.value)}
+          onFocus={() => setShowDropdown(true)}
           style={inputStyle}
-          required
-        >
-          <option value="">-- Select Worker --</option>
-          {workers.map(worker => (
-            <option key={worker._id || worker.id} value={worker._id || worker.id}>
-              {worker.name}
-            </option>
-          ))}
-        </select>
+          required={!formData.worker}
+        />
+        {showDropdown && (
+          <div style={{
+            position: 'absolute', top: '100%', left: 0, right: 0,
+            maxHeight: '200px', overflowY: 'auto', backgroundColor: 'white',
+            border: '1px solid #ddd', borderRadius: '4px', zIndex: 1000,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+          }}>
+            {workers
+              .filter(worker => worker.name.toLowerCase().includes(workerSearch.toLowerCase()))
+              .map(worker => (
+                <div
+                  key={worker._id || worker.id}
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, worker: worker._id || worker.id }));
+                    setWorkerSearch(worker.name);
+                    setShowDropdown(false);
+                  }}
+                  style={{
+                    padding: '10px', cursor: 'pointer',
+                    borderBottom: '1px solid #eee',
+                    backgroundColor: formData.worker === (worker._id || worker.id) ? '#e7f3ff' : 'white'
+                  }}
+                  onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'}
+                  onMouseLeave={(e) => e.target.style.backgroundColor = formData.worker === (worker._id || worker.id) ? '#e7f3ff' : 'white'}
+                >
+                  {worker.name}
+                </div>
+              ))}
+          </div>
+        )}
+        <input type="hidden" name="worker" value={formData.worker} required />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>

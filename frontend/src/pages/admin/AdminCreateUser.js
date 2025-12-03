@@ -123,11 +123,13 @@ function AdminCreateUser() {
       dataIndex: 'name',
       key: 'name',
     },
-    {
-      title: 'Email',
-      dataIndex: 'email',
-      key: 'email',
-    },
+{
+  title: 'Email',
+  dataIndex: 'email',
+  key: 'email',
+  render: (email, record) => record.role === 'worker' ? '-' : email
+},
+
     {
       title: 'Role',
       dataIndex: 'role',

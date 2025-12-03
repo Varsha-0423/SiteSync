@@ -207,7 +207,16 @@ const createTask = async (req, res) => {
       priority, 
       status, 
       isForToday, 
-      supervisor 
+      supervisor,
+      activityId,
+      remarks,
+      strategy,
+      budgetedQuantity,
+      prelimsStaffs,
+      overheadStaffs,
+      material,
+      equipment,
+      manpower
     } = req.body;
 
     const task = await Task.create({
@@ -221,7 +230,16 @@ const createTask = async (req, res) => {
       priority: priority || 'medium',
       status: status || 'pending',
       isForToday: isForToday || false,
-      supervisor
+      supervisor,
+      activityId: activityId || '',
+      remarks: remarks || 'N/A',
+      strategy: strategy || '',
+      budgetedQuantity: parseFloat(budgetedQuantity) || 0,
+      prelimsStaffs: parseFloat(prelimsStaffs) || 0,
+      overheadStaffs: parseFloat(overheadStaffs) || 0,
+      material: parseFloat(material) || 0,
+      equipment: parseFloat(equipment) || 0,
+      manpower: parseFloat(manpower) || 0
     });
 
     res.status(201).json({
@@ -265,6 +283,22 @@ const updateTask = async (req, res) => {
     
     // Create a copy of the request body to modify
     const updateData = { ...req.body };
+    
+    // Parse numeric fields to ensure they're stored as numbers
+    const numericFields = [
+      'budgetedQuantity',
+      'prelimsStaffs',
+      'overheadStaffs',
+      'material',
+      'equipment',
+      'manpower'
+    ];
+    
+    numericFields.forEach(field => {
+      if (updateData[field] !== undefined) {
+        updateData[field] = parseFloat(updateData[field]) || 0;
+      }
+    });
     
     // Handle assignedWorkers if it exists in the request
     if (updateData.assignedWorkers) {
@@ -359,9 +393,59 @@ const deleteTask = async (req, res) => {
 const getDashboardStats = async (req, res) => {
   try {
     const totalTasks = await Task.countDocuments();
-    const onScheduleTasks = await Task.countDocuments({ status: 'on-schedule' });
-    const behindTasks = await Task.countDocuments({ status: 'behind' });
-    const aheadTasks = await Task.countDocuments({ status: 'ahead' });
+    const completedTasks = await Task.countDocuments({ status: 'completed' });
+    const issuesTasks = await Task.countDocuments({ status: 'behind' });
+    const pendingTasks = await Task.countDocuments({ status: 'pending' });
+    
+    // Get all tasks with budget data
+    const tasks = await Task.find({}, 'prelimsStaffs overheadStaffs material equipment manpower taskName');
+    
+    // Calculate budget statistics
+    let totalBudget = 0;
+    let categoryTotals = {
+      prelimsStaffs: 0,
+      overheadStaffs: 0,
+      material: 0,
+      equipment: 0,
+      manpower: 0
+    };
+    
+    tasks.forEach(task => {
+      const taskBudget = (task.prelimsStaffs || 0) + 
+                        (task.overheadStaffs || 0) + 
+                        (task.material || 0) + 
+                        (task.equipment || 0) + 
+                        (task.manpower || 0);
+      
+      totalBudget += taskBudget;
+      
+      // Sum up each category
+      categoryTotals.prelimsStaffs += task.prelimsStaffs || 0;
+      categoryTotals.overheadStaffs += task.overheadStaffs || 0;
+      categoryTotals.material += task.material || 0;
+      categoryTotals.equipment += task.equipment || 0;
+      categoryTotals.manpower += task.manpower || 0;
+    });
+    
+    // Find the most expensive task
+    const mostExpensiveTask = tasks.reduce((max, task) => {
+      const taskBudget = (task.prelimsStaffs || 0) + 
+                        (task.overheadStaffs || 0) + 
+                        (task.material || 0) + 
+                        (task.equipment || 0) + 
+                        (task.manpower || 0);
+      
+      if (taskBudget > (max.budget || 0)) {
+        return { name: task.taskName, budget: taskBudget };
+      }
+      return max;
+    }, { name: '', budget: 0 });
+    
+    // Find the most expensive category
+    const mostExpensiveCategory = Object.entries(categoryTotals).reduce(
+      (max, [category, amount]) => (amount > (max.amount || 0) ? { category, amount } : max),
+      { category: '', amount: 0 }
+    );
     
     const users = await User.find({ role: 'worker' }).select('name');
     const userStats = await Promise.all(
@@ -378,10 +462,20 @@ const getDashboardStats = async (req, res) => {
       success: true,
       data: {
         totalTasks,
-        onScheduleTasks,
-        behindTasks,
-        aheadTasks,
-        userStats
+        completedTasks,
+        issuesTasks,
+        pendingTasks,
+        userStats,
+        budgetStats: {
+          totalBudget,
+          avgBudgetPerTask: totalBudget / (tasks.length || 1),
+          mostExpensiveTask,
+          mostExpensiveCategory: {
+            name: mostExpensiveCategory.category,
+            amount: mostExpensiveCategory.amount
+          },
+          categoryTotals
+        }
       }
     });
   } catch (error) {
@@ -392,6 +486,7 @@ const getDashboardStats = async (req, res) => {
     });
   }
 };
+
 // @route   POST /api/tasks/upload-excel
 // @access  Private/Admin
 const uploadExcel = async (req, res) => {
@@ -414,7 +509,6 @@ const uploadExcel = async (req, res) => {
     const createdTasks = [];
     const errors = [];
     
-    // Month name to number mapping
     const monthMap = {
       'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
       'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
@@ -425,28 +519,28 @@ const uploadExcel = async (req, res) => {
       const rowNum = i + 2;
       
       try {
-        const activityId = row['activityId'] || '';
-        const activityName = row['activityName'] || '';
-        const startDate = row['startDate'] || '';
-        const endDate = row['endDate'] || '';
-        const remarks = row['remarks'] || '';
+        const activityId = row['Activity ID'] || '';
+        const activityName = row['Activity Name'] || '';
+        const startDate = row['Start Date'] || '';
+        const endDate = row['End Date'] || '';
+        const remarks = row['Remarks'] || 'N/A';
+        const strategy = row['Strategy'] || '';
         
-        // Check required fields
-        if (!activityId || !activityName || !startDate || !endDate) {
-          throw new Error('Missing required fields: activityId, activityName, startDate, or endDate');
-        }
+        const budgetedQuantity = Number(row['Budgeted Quantity']) || 0;
+        const prelimsStaffs = Number(row['Prelims Staffs']) || 0;
+        const overheadStaffs = Number(row['Overhead Staffs']) || 0;
+        const material = Number(row['Material']) || 0;
+        const equipment = Number(row['Equipment']) || 0;
+        const manpower = Number(row['Manpower']) || 0;
 
-        // Parse dates from DD-Mon-YY format or Excel serial number
         const parseExcelDate = (dateStr) => {
           if (!dateStr) return null;
           
-          // Handle Excel serial date numbers
           if (typeof dateStr === 'number') {
             const excelEpoch = new Date(1899, 11, 30);
             return new Date(excelEpoch.getTime() + dateStr * 86400000);
           }
           
-          // Handle DD-Mon-YY format
           const excelDateMatch = String(dateStr).match(/^(\d{1,2})-(\w{3})-(\d{2})$/);
           if (excelDateMatch) {
             const [, day, monthStr, yearShort] = excelDateMatch;
@@ -465,27 +559,30 @@ const uploadExcel = async (req, res) => {
         const parsedEndDate = parseExcelDate(endDate);
         
         if (!parsedStartDate || isNaN(parsedStartDate.getTime())) {
-          throw new Error(`Invalid start date format: ${startDate}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
+          throw new Error(`Invalid start date: ${startDate}`);
         }
         
         if (!parsedEndDate || isNaN(parsedEndDate.getTime())) {
-          throw new Error(`Invalid end date format: ${endDate}. Expected DD-Mon-YY (e.g., 25-Oct-25)`);
-        }
-        
-        if (parsedEndDate < parsedStartDate) {
-          throw new Error(`End date cannot be before start date`);
+          throw new Error(`Invalid end date: ${endDate}`);
         }
 
         const taskData = {
-          activityId,
-          taskName: activityName,
-          description: activityName,
-          remarks: remarks || 'N/A',
+          activityId: activityId || `TASK-${Date.now()}-${i}`,
+          taskName: activityName || 'Untitled Task',
+          description: activityName || 'No description',
+          remarks,
           date: parsedStartDate,
           startDate: parsedStartDate,
           endDate: parsedEndDate,
           priority: 'medium',
           status: 'pending',
+          strategy,
+          budgetedQuantity,
+          prelimsStaffs,
+          overheadStaffs,
+          material,
+          equipment,
+          manpower,
           createdBy: req.user._id
         };
 
@@ -529,7 +626,6 @@ const uploadExcel = async (req, res) => {
 // @access  Private/Admin
 const getTodayTasks = async (req, res) => {
   try {
-    // Get tasks marked for today, handle cases where field might not exist
     const tasks = await Task.find({ isForToday: true })
       .sort({ createdAt: -1 });
 
@@ -549,12 +645,9 @@ const getTodayTasks = async (req, res) => {
 // @access  Private/Supervisor
 const getSupervisorTodayTasks = async (req, res) => {
   try {
-    // Get tasks marked for today for supervisor assignment
     const tasks = await Task.find({ isForToday: true })
       .populate('assignedWorkers', 'name email')
       .sort({ createdAt: -1 });
-
-    console.log('Supervisor tasks with deadlineDate:', tasks.map(t => ({ id: t._id, deadlineDate: t.deadlineDate })));
 
     res.json({
       success: true,
@@ -573,9 +666,7 @@ const getSupervisorTodayTasks = async (req, res) => {
 const updateTodayTasks = async (req, res) => {
   try {
     const { taskIds, date, deadline, supervisorId } = req.body;
-    console.log('updateTodayTasks received:', { taskIds, date, deadline, supervisorId, fullBody: req.body });
     
-    // Validate required fields
     if (!taskIds || !Array.isArray(taskIds)) {
       return res.status(400).json({ 
         success: false,
@@ -583,28 +674,23 @@ const updateTodayTasks = async (req, res) => {
       });
     }
 
-    // Start a session for transaction
     const session = await mongoose.startSession();
     session.startTransaction();
 
     try {
-      // 1. First, reset all tasks to not be for today
       await Task.updateMany(
         {},
         { $set: { isForToday: false } },
         { session }
       );
 
-      // 2. Update the selected tasks to be for today
       if (taskIds.length > 0) {
-        // Ensure supervisorId is a valid ObjectId if provided
         const updateData = {
           isForToday: true,
           ...(date && { startDate: date }),
           ...(deadline && { deadline })
         };
         
-        // Only add supervisor if it's a valid ID
         if (supervisorId && mongoose.Types.ObjectId.isValid(supervisorId)) {
           updateData.supervisor = supervisorId;
         }
@@ -616,11 +702,9 @@ const updateTodayTasks = async (req, res) => {
         );
       }
 
-      // Commit the transaction
       await session.commitTransaction();
       session.endSession();
 
-      // 3. Get the updated list of today's tasks
       const todayTasks = await Task.find({ _id: { $in: taskIds } })
         .populate('supervisor', 'name email')
         .populate('assignedWorkers', 'name email');
@@ -632,16 +716,14 @@ const updateTodayTasks = async (req, res) => {
       });
 
     } catch (error) {
-      // If an error occurred, abort the transaction
       await session.abortTransaction();
       session.endSession();
-      throw error; // This will be caught by the outer catch block
+      throw error;
     }
 
   } catch (error) {
     console.error('Error updating today tasks:', error);
     
-    // Handle specific error types
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => ({
         field: err.path,
@@ -672,7 +754,6 @@ const updateTodayTasks = async (req, res) => {
   }
 };
 
-// Export all functions
 module.exports = {
   getTasks,
   createTask,
