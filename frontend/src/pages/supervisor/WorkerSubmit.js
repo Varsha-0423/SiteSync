@@ -93,24 +93,46 @@ function WorkerSubmit({ task: taskId, taskName, onClose, onWorkSubmitted, isSupe
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate main worker data
     if (!isSupervisor && !formData.worker) {
       setMessage({ type: 'error', text: "Please select a worker" });
       return;
     }
     
     if (!formData.quantity) {
-      setMessage({ type: 'error', text: "Please enter quantity" });
+      setMessage({ type: 'error', text: "Please enter quantity for the main worker" });
       return;
     }
 
     if (!formData.unit) {
-      setMessage({ type: 'error', text: "Please select a unit of measurement" });
+      setMessage({ type: 'error', text: "Please select a unit of measurement for the main worker" });
       return;
     }
 
     if (!formData.description) {
       setMessage({ type: 'error', text: "Please enter a work description" });
       return;
+    }
+    
+    // Validate additional workers
+    for (let i = 0; i < additionalWorkers.length; i++) {
+      const worker = additionalWorkers[i];
+      if (!worker.worker) {
+        setMessage({ type: 'error', text: `Please select a worker for additional worker #${i + 1}` });
+        return;
+      }
+      if (!worker.quantity) {
+        setMessage({ type: 'error', text: `Please enter quantity for additional worker #${i + 1}` });
+        return;
+      }
+      if (!worker.unit) {
+        setMessage({ type: 'error', text: `Please select a unit of measurement for additional worker #${i + 1}` });
+        return;
+      }
+      if (!worker.description) {
+        setMessage({ type: 'error', text: `Please enter a work description for additional worker #${i + 1}` });
+        return;
+      }
     }
     
     try {
@@ -161,25 +183,41 @@ function WorkerSubmit({ task: taskId, taskName, onClose, onWorkSubmitted, isSupe
         }
       }
       
-      // Prepare work submission data
-      const workData = {
-        task: taskId,
-        status: formData.status,
-        updateText: formData.description,
-        photoUrl: photoUrls[0] || '', // For backward compatibility
-        photoUrls: photoUrls, // New field for multiple images
-        quantity: formData.quantity,
-        unit: formData.unit,
-        worker: formData.worker,
-        deadline: formData.deadline ? new Date(formData.deadline).toISOString() : ''
-      };
+      // Prepare work submission data for main worker
+      const allWorkersData = [
+        // Main worker data
+        {
+          task: taskId,
+          status: formData.status,
+          updateText: formData.description,
+          photoUrl: photoUrls[0] || '', // For backward compatibility
+          photoUrls: photoUrls, // New field for multiple images
+          quantity: formData.quantity,
+          unit: formData.unit,
+          worker: formData.worker,
+          deadline: formData.deadline ? new Date(formData.deadline).toISOString() : ''
+        },
+        // Additional workers data
+        ...additionalWorkers.map(worker => ({
+          task: taskId,
+          status: formData.status, // Same status for all workers
+          updateText: worker.description || formData.description, // Use worker's description or fallback to main description
+          photoUrl: photoUrls[0] || '', // Same photos for all workers
+          photoUrls: photoUrls,
+          quantity: worker.quantity,
+          unit: worker.unit,
+          worker: worker.worker,
+          deadline: formData.deadline ? new Date(formData.deadline).toISOString() : ''
+        }))
+      ];
       
-      console.log('Submitting work data:', workData);
-      console.log('Worker ID type:', typeof formData.worker, 'Value:', formData.worker);
+      console.log('Submitting work data for all workers:', allWorkersData);
       
       try {
-        // Submit work report
-        const response = await api.post('/work/submit', workData);
+        // Submit work reports for all workers
+        const responses = await Promise.all(
+          allWorkersData.map(workData => api.post('/work/submit', workData))
+        );
         
         // Update task status with the selected status
         try {
@@ -194,16 +232,16 @@ function WorkerSubmit({ task: taskId, taskName, onClose, onWorkSubmitted, isSupe
         
         setMessage({ 
           type: 'success', 
-          text: isSupervisor 
-            ? "Work submitted and task marked as completed!" 
-            : "Work submitted successfully!"
+          text: `Work submitted successfully for ${allWorkersData.length} worker${allWorkersData.length > 1 ? 's' : ''}!`
         });
         
         // Update task status in parent component
-        if (onWorkSubmitted && response.data && response.data.task) {
-          onWorkSubmitted(response.data.task._id, formData.status);
-        } else if (onWorkSubmitted) {
-          onWorkSubmitted(taskId, formData.status);
+        if (onWorkSubmitted) {
+          const lastResponse = responses[responses.length - 1];
+          const taskIdToUpdate = lastResponse.data && lastResponse.data.task 
+            ? lastResponse.data.task._id 
+            : taskId;
+          onWorkSubmitted(taskIdToUpdate, formData.status);
         }
       } catch (submitError) {
         console.error('Error submitting work:', submitError);
