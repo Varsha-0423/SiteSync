@@ -204,7 +204,17 @@ function TaskScheduler() {
     
     return allTasks.filter(task => {
       // Apply status filter
-      const statusMatch = statusFilter === 'all' || task.status === statusFilter;
+      let statusMatch = true;
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'not_assigned') {
+          statusMatch = !task.assignedWorkers || task.assignedWorkers.length === 0;
+        } else if (statusFilter === 'in_progress') {
+          // Handle both 'in_progress' and 'in-progress' status values
+          statusMatch = task.status === 'in_progress' || task.status === 'in-progress';
+        } else {
+          statusMatch = task.status === statusFilter;
+        }
+      }
       
       // Apply search query filter (case-insensitive)
       const searchLower = searchQuery.toLowerCase();
@@ -278,13 +288,21 @@ function TaskScheduler() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'pending': return '#6c757d';
-      case 'on-schedule': return '#28a745';
-      case 'behind': return '#dc3545';
-      case 'ahead': return '#17a2b8';
-      case 'completed': return '#28a745';
-      case 'overdue': return '#dc3545'; // Red color for overdue tasks
-      default: return '#6c757d';
+      case 'pending':
+      case 'in_progress':
+        return '#6c757d'; // Gray for pending/in progress
+      case 'completed': 
+        return '#28a745'; // Green for completed
+      case 'overdue': 
+        return '#dc3545'; // Red for overdue
+      case 'on_hold': 
+        return '#ffc107'; // Yellow for on hold
+      case 'issues': 
+        return '#fd7e14'; // Orange for issues
+      case 'not_assigned':
+        return '#6f42c1'; // Purple for not assigned
+      default: 
+        return '#6c757d'; // Default gray
     }
   };
 
@@ -406,11 +424,12 @@ function TaskScheduler() {
               }}
             >
               <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="on-schedule">On-Schedule</option>
-              <option value="behind">Behind</option>
-              <option value="ahead">Ahead</option>
+              <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
+              <option value="overdue">Overdue</option>
+              <option value="on_hold">On Hold</option>
+              <option value="issues">Issues</option>
+              <option value="not_assigned">Not Assigned</option>
             </select>
           </div>
         </div>
