@@ -2,613 +2,299 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../../api';
 
+import {
+  Card,
+  Tabs,
+  Tag,
+  Button,
+  Descriptions,
+  Spin,
+  Image,
+  Row,
+  Col,
+  message
+} from "antd";
+
 function TaskDetail() {
   const { taskId } = useParams();
   const navigate = useNavigate();
+
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('details');
+  const [error, setError] = useState("");
   const [workReports, setWorkReports] = useState([]);
   const [workers, setWorkers] = useState([]);
 
-  useEffect(() => {
-    const fetchTaskAndReports = async () => {
-      if (!taskId) {
-        setError('No task ID provided');
-        setLoading(false);
-        return;
-      }
+  // Format date function
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not available";
+    return new Date(dateString).toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
+  // Load Task + Reports
+  useEffect(() => {
+    const loadData = async () => {
       try {
         setLoading(true);
-        setError('');
-        
-        // Fetch task details
+
         const taskRes = await api.get(`/tasks/${taskId}`);
-        
-        if (taskRes.data && taskRes.data.success) {
-          setTask(taskRes.data.data);
-          
-          // Fetch work reports
-          try {
-            const reportsRes = await api.get(`/work/task/${taskId}`);
-            if (reportsRes.data && reportsRes.data.success) {
-              const reports = Array.isArray(reportsRes.data.data) ? reportsRes.data.data : [];
-              // Process reports to ensure they have the expected structure
-              const processedReports = reports.map(report => ({
-                ...report,
-                photoUrls: report.attachments || [],
-                workerName: report.worker?.name || 'Unknown Worker',
-                workerEmail: report.worker?.email || '',
-                status: report.status || 'pending',
-                date: report.createdAt ? new Date(report.createdAt).toLocaleString() : 'Unknown date'
-              }));
-              setWorkReports(processedReports);
-            }
-          } catch (reportErr) {
-            console.warn('Could not load work reports:', reportErr);
-            setWorkReports([]);
-            // Don't show error to user for missing reports
-          }
-        } else {
-          setError('Task not found');
+        if (!taskRes.data.success) {
+          setError("Task not found");
+          setLoading(false);
+          return;
+        }
+
+        setTask(taskRes.data.data);
+
+        // Get Work Reports
+        const reportsRes = await api.get(`/work/task/${taskId}`);
+        if (reportsRes.data.success) {
+          const processed = reportsRes.data.data.map((r) => ({
+            ...r,
+            photoUrls: r.attachments || [],
+            workerName: r.worker?.name || "Unknown",
+          }));
+          setWorkReports(processed);
         }
       } catch (err) {
-        console.error('Error fetching task details:', err);
-        if (err.response) {
-          if (err.response.status === 401) {
-            setError('Please log in to view this task');
-            // Optionally redirect to login
-            // navigate('/login');
-          } else if (err.response.status === 403) {
-            setError('You do not have permission to view this task');
-          } else if (err.response.status === 404) {
-            setError('Task not found');
-          } else {
-            setError(`Error: ${err.response.data?.message || 'Failed to load task details'}`);
-          }
-        } else {
-          setError('Failed to connect to the server. Please check your connection.');
-        }
+        console.error(err);
+        setError("Failed to load task details");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTaskAndReports();
-  }, [taskId, navigate]);
+    loadData();
+  }, [taskId]);
 
+  // Load workers
   useEffect(() => {
-    const fetchWorkers = async () => {
-      try {
-        const response = await api.get('/users?role=worker');
-        setWorkers(response.data.data || []);
-      } catch (error) {
-        console.error('Error fetching workers:', error);
-      }
-    };
-    fetchWorkers();
+    api
+      .get("/users?role=worker")
+      .then((res) => setWorkers(res.data.data || []))
+      .catch(() => {});
   }, []);
 
-  if (loading) return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      height: '200px',
-      fontSize: '18px',
-      color: '#666'
-    }}>
-      Loading task details...
-    </div>
-  );
-  
-  if (error) return (
-    <div style={{ 
-      padding: '20px', 
-      backgroundColor: '#fff8f8', 
-      border: '1px solid #ffdddd',
-      borderRadius: '4px',
-      margin: '20px',
-      color: '#721c24',
-      textAlign: 'center'
-    }}>
-      {error}
-      <div style={{ marginTop: '10px' }}>
-        <button 
-          onClick={() => window.location.reload()} 
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#f0f0f0',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginRight: '10px'
-          }}
-        >
-          Try Again
-        </button>
-        <button 
-          onClick={() => navigate(-1)}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#f0f0f0',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          Go Back
-        </button>
+  // LOADING UI
+  if (loading)
+    return (
+      <div style={{ padding: 80, textAlign: "center" }}>
+        <Spin size="large" />
       </div>
-    </div>
-  );
-  
-  if (!task) return (
-    <div style={{ 
-      padding: '20px', 
-      backgroundColor: '#f8f9fa', 
-      border: '1px solid #ddd',
-      borderRadius: '4px',
-      margin: '20px',
-      textAlign: 'center'
-    }}>
-      Task not found or you don't have permission to view it
-    </div>
-  );
+    );
 
-  const formatDate = (dateString) => {
-    if (!dateString) return null;
-    
-    const options = {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    };
-    
-    return new Date(dateString).toLocaleString('en-US', options);
-  };
-  
-  const isDeadlinePassed = (deadline) => {
-    if (!deadline) return false;
-    return new Date(deadline) < new Date();
-  };
+  // ERROR UI
+  if (error)
+    return (
+      <Card style={{ margin: 40, padding: 40, textAlign: "center" }}>
+        <h3>{error}</h3>
+        <Button style={{ marginTop: 20 }} onClick={() => navigate(-1)}>
+          Go Back
+        </Button>
+      </Card>
+    );
 
+  // STATUS COLOR LOGIC
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "completed":
+        return "green";
+      case "in-progress":
+        return "blue";
+      case "pending":
+        return "orange";
+      case "rejected":
+        return "red";
+      default:
+        return "default";
+    }
+  };
 
   return (
-    <div className="task-detail-container">
-      <h2>Task Details</h2>
-      <div className="task-header">
-        <h3>{task.title}</h3>
-        <p>Status: <span className={`status-${task.status}`}>{task.status}</span></p>
-      </div>
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
+      <Button onClick={() => navigate(-1)} style={{ marginBottom: 20 }}>
+        ← Back
+      </Button>
 
-      <div className="tabs">
-        <button 
-          className={activeTab === 'details' ? 'active' : ''}
-          onClick={() => setActiveTab('details')}
-        >
-          Task Details
-        </button>
-        <button 
-          className={activeTab === 'updates' ? 'active' : ''}
-          onClick={() => setActiveTab('updates')}
-        >
-          Work Updates ({workReports.length})
-        </button>
-      </div>
+      <Card
+        title={task.taskName || "Task Details"}
+        style={{
+          borderRadius: 12,
+          boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+        }}
+        extra={
+          <Tag color={getStatusColor(task.status)}>
+            {task.status?.toUpperCase()}
+          </Tag>
+        }
+      >
+        <Tabs
+          type="card"
+          defaultActiveKey="1"
+          items={[
+            {
+              key: "1",
+              label: "Task Details",
+              children: (
+                <Descriptions
+                  bordered
+                  column={2}
+                  size="middle"
+                  labelStyle={{ fontWeight: 600 }}
+                >
+                  <Descriptions.Item label="Activity ID">
+                    {task.activityId || "N/A"}
+                  </Descriptions.Item>
 
-      <div className="tab-content">
-        {activeTab === 'details' ? (
-          <div className="task-details">
-            {/* Task Status and Basic Info */}
-            <div className="detail-section">
-              <h3>Task Information</h3>
-              
-              <div className="detail-row">
-                <span className="label">Activity ID:</span>
-                <span>{task.activityId || 'N/A'}</span>
-              </div>
-              
-              <div className="detail-row">
-                <span className="label">Activity Name:</span>
-                <span>{task.taskName || 'N/A'}</span>
-              </div>
-              
-              <div className="detail-row">
-                <span className="label">Remarks:</span>
-                <span>{task.remarks || 'N/A'}</span>
-              </div>
-              
-              <div className="detail-row">
-                <span className="label">Start Date:</span>
-                <span>{formatDate(task.startDate) || 'Not set'}</span>
-              </div>
-              
-              <div className="detail-row">
-                <span className="label">End Date:</span>
-                <span>{formatDate(task.endDate) || 'Not set'}</span>
-              </div>
-              
-              <div className="detail-row">
-                <span className="label">Status:</span>
-                <span className={`status-${task.status || 'pending'}`}>
-                  {task.status ? task.status.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'Pending'}
-                </span>
-              </div>
-              
-              <div className="detail-row">
-                <span className="label">Marked for Today:</span>
-                <span>{task.isForToday ? 'Yes' : 'No'}</span>
-              </div>
-              
-              {task.supervisor && (
-                <div className="detail-row">
-                  <span className="label">Supervisor:</span>
-                  <span>{task.supervisor.name || 'Not assigned'}</span>
+                  <Descriptions.Item label="Activity Name">
+                    {task.activityName || task.taskName || "N/A"}
+                  </Descriptions.Item>
+
+                  <Descriptions.Item label="Start Date">
+                    {formatDate(task.startDate)}
+                  </Descriptions.Item>
+
+                  <Descriptions.Item label="End Date">
+                    {formatDate(task.endDate)}
+                  </Descriptions.Item>
+
+                  <Descriptions.Item label="Remarks">
+                    {task.remarks || "None"}
+                  </Descriptions.Item>
+
+                  <Descriptions.Item label="Supervisor">
+                    {task.supervisor?.name || "Not assigned"}
+                  </Descriptions.Item>
+
+                  <Descriptions.Item label="Marked For Today">
+                    <Tag color={task.isForToday ? "green" : "red"}>
+                      {task.isForToday ? "YES" : "NO"}
+                    </Tag>
+                  </Descriptions.Item>
+
+                  {task.assignedWorkers?.length > 0 && (
+                    <Descriptions.Item label="Assigned Workers" span={2}>
+                      {task.assignedWorkers.map((worker, index) => {
+                        // Handle both object and string worker formats
+                        let workerName = 'Unknown';
+                        let workerId = `worker-${index}`;
+                        
+                        if (typeof worker === 'object' && worker !== null) {
+                          workerName = worker.name || worker.username || 'Unnamed Worker';
+                          workerId = worker._id || worker.id || workerId;
+                        } else if (typeof worker === 'string') {
+                          // If worker is just an ID, try to find the worker in the workers list
+                          const foundWorker = workers.find(w => w._id === worker || w.id === worker);
+                          if (foundWorker) {
+                            workerName = foundWorker.name || foundWorker.username || 'Unnamed Worker';
+                            workerId = foundWorker._id || foundWorker.id || workerId;
+                          } else {
+                            workerName = `Worker ${worker.substring(0, 6)}...`;
+                            workerId = worker;
+                          }
+                        }
+                        
+                        return (
+                          <Tag 
+                            key={workerId} 
+                            color="blue" 
+                            style={{ 
+                              marginBottom: 6,
+                              marginRight: 8,
+                              padding: '4px 10px',
+                              borderRadius: 4
+                            }}
+                          >
+                            {workerName}
+                          </Tag>
+                        );
+                      })}
+                    </Descriptions.Item>
+                  )}
+                </Descriptions>
+              ),
+            },
+
+            {
+              key: "2",
+              label: `Work Updates (${workReports.length})`,
+              children: (
+                <div>
+                  {workReports.length === 0 ? (
+                    <p>No work updates submitted.</p>
+                  ) : (
+                    workReports.map((report) => (
+                      <Card
+                        key={report._id}
+                        style={{
+                          marginBottom: 20,
+                          borderRadius: 10,
+                          boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+                        }}
+                        title={
+                          <Row justify="space-between">
+                            <Col>{report.workerName}</Col>
+                            <Col>
+                              <Tag color={getStatusColor(report.status)}>
+                                {report.status}
+                              </Tag>
+                            </Col>
+                          </Row>
+                        }
+                      >
+                        <p>
+                          <strong>Updated On:</strong> {formatDate(report.updatedAt)}
+                        </p>
+
+                        {report.updateText && (
+                          <p>
+                            <strong>Work Update:</strong> {report.updateText}
+                          </p>
+                        )}
+
+                        {report.quantity && (
+                          <p>
+                            <strong>Quantity:</strong>{" "}
+                            {report.quantity} {report.unit}
+                          </p>
+                        )}
+
+                        {report.photoUrls.length > 0 && (
+                          <>
+                            <strong>Photos:</strong>
+                            <Row gutter={[16, 16]} style={{ marginTop: 10 }}>
+                              {report.photoUrls.map((url, i) => (
+                                <Col key={i} span={6}>
+                                  <Image
+                                    src={url}
+                                    width="100%"
+                                    height={120}
+                                    style={{
+                                      objectFit: "cover",
+                                      borderRadius: 8,
+                                      border: "1px solid #eee",
+                                    }}
+                                  />
+                                </Col>
+                              ))}
+                            </Row>
+                          </>
+                        )}
+                      </Card>
+                    ))
+                  )}
                 </div>
-              )}
-            </div>
-            
-            {/* Work Reports Section */}
-            {workReports.length > 0 && (
-              <div className="submission-section">
-                <h3>Supervisor Submission</h3>
-                <div className="submission-details">
-                  <div className="detail-row">
-                    <span className="label">Submitted By:</span>
-                    <span className="value">
-                      {workReports[0].worker?.name || task.supervisor?.name || 'Unknown Supervisor'}
-                      {workReports[0].worker?.email ? ` (${workReports[0].worker.email})` : ''}
-                    </span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">Submission Status:</span>
-                    <span className={`status-${workReports[0].status || 'pending'}`}>
-                      {workReports[0].status ? workReports[0].status.charAt(0).toUpperCase() + workReports[0].status.slice(1) : 'Pending Review'}
-                    </span>
-                  </div>
-                  <div className="detail-row">
-                    <span className="label">Submitted On:</span>
-                    <span className="value">{formatDate(workReports[0].updatedAt) || 'N/A'}</span>
-                  </div>
-                  
-                  {workReports[0].updateText && (
-                    <div className="work-update">
-                      <div className="label">Work Update:</div>
-                      <div className="update-content">{workReports[0].updateText}</div>
-                    </div>
-                  )}
-                  
-                  {(workReports[0].quantity || workReports[0].unit) && (
-                    <div className="work-metrics">
-                      <div className="detail-row">
-                        <span className="label">Quantity:</span>
-                        <span className="value">
-                          {workReports[0].quantity || '0'} {workReports[0].unit || ''}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {workReports[0].photoUrls?.length > 0 && (
-                    <div className="submission-photos">
-                      <div className="label">Submitted Photos:</div>
-                      <div className="photo-grid">
-                        {workReports[0].photoUrls.map((url, index) => (
-                          <div key={index} className="photo-thumbnail" onClick={() => window.open(url, '_blank')}>
-                            <img 
-                              src={url} 
-                              alt={`Submission ${index + 1}`}
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = 'https://via.placeholder.com/150?text=Image+Not+Found';
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            {task.assignedWorkers?.length > 0 && (
-              <div className="assigned-workers">
-                <h4>Assigned Workers:</h4>
-                <ul>
-                  {task.assignedWorkers.map((worker, index) => {
-                    const workerId = typeof worker === 'object' ? (worker._id || worker.id) : worker;
-                    const workerObj = workers.find(w => (w._id || w.id) === workerId);
-                    const workerName = typeof worker === 'object' ? worker.name : (workerObj?.name || `Worker ${workerId}`);
-                    return <li key={workerId}>{workerName}</li>;
-                  })}
-                </ul>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="work-updates">
-            {workReports.length === 0 ? (
-              <p>No work updates available.</p>
-            ) : (
-              <div className="updates-list">
-                {workReports.map((report, index) => (
-                  <div key={report._id} className="update-card">
-                    <div className="update-header">
-                      <span className="update-worker">
-                        {report.worker?.name || 'Unknown Worker'}
-                      </span>
-                      <span className="update-date">
-                        {formatDate(report.updatedAt)}
-                      </span>
-                    </div>
-                    <div className="update-status">
-                      Status: <span className={`status-${report.status}`}>{report.status}</span>
-                    </div>
-                    {report.quantity && (
-                      <div className="update-quantity">
-                        Quantity: {report.quantity} {report.unit || ''}
-                      </div>
-                    )}
-                    {report.updateText && (
-                      <div className="update-text">
-                        <p>{report.updateText}</p>
-                      </div>
-                    )}
-                    {report.photoUrls && report.photoUrls.length > 0 && (
-                      <div className="update-photos" style={{ 
-                        marginTop: '10px',
-                        paddingTop: '10px',
-                        borderTop: '1px solid #f0f0f0'
-                      }}>
-                        <div style={{ 
-                          display: 'grid', 
-                          gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                          gap: '10px',
-                          marginTop: '10px'
-                        }}>
-                          {report.photoUrls.map((url, i) => {
-                            // Ensure the URL is properly formatted
-                            const imageUrl = url.startsWith('http') ? url : `${process.env.REACT_APP_API_URL || ''}${url}`;
-                            return (
-                              <div key={i} style={{ 
-                                position: 'relative',
-                                paddingBottom: '100%',
-                                overflow: 'hidden',
-                                borderRadius: '4px',
-                                border: '1px solid #eee',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s ease',
-                                backgroundColor: '#f8f9fa',
-                                ':hover': {
-                                  transform: 'scale(1.03)',
-                                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                }
-                              }}>
-                                <img 
-                                  src={imageUrl} 
-                                  alt={`Work update ${i + 1}`}
-                                  style={{ 
-                                    position: 'absolute',
-                                    top: 0,
-                                    left: 0,
-                                    width: '100%', 
-                                    height: '100%', 
-                                    objectFit: 'cover' 
-                                  }}
-                                  onClick={() => window.open(imageUrl, '_blank')}
-                                />
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      <style jsx>{`
-        .task-detail-container {
-          max-width: 1000px;
-          margin: 0 auto;
-          padding: 24px;
-          background: #fff;
-          border-radius: 8px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .detail-section {
-          background: #fafafa;
-          padding: 20px;
-          border-radius: 6px;
-          margin-bottom: 24px;
-          border: 1px solid #f0f0f0;
-        }
-        
-        .detail-section h3 {
-          margin-top: 0;
-          margin-bottom: 16px;
-          padding-bottom: 8px;
-          border-bottom: 1px solid #f0f0f0;
-          color: #333;
-        }
-        
-        .detail-row {
-          display: flex;
-          margin-bottom: 12px;
-          line-height: 1.5;
-          flex-wrap: wrap;
-        }
-        
-        .detail-row .label {
-          font-weight: 500;
-          color: #666;
-          min-width: 150px;
-          margin-right: 10px;
-        }
-        
-        .detail-row .value {
-          flex: 1;
-          word-break: break-word;
-        }
-        
-        .status-pending { color: #faad14; }
-        .status-completed { color: #52c41a; }
-        .status-on-schedule { color: #1890ff; }
-        .status-behind { color: #fa8c16; }
-        .status-ahead { color: #722ed1; }
-        
-        .priority-low { color: #52c41a; }
-        .priority-medium { color: #faad14; }
-        .priority-high { color: #f5222d; }
-        
-        .tabs {
-          display: flex;
-          margin: 0 -24px 24px -24px;
-          padding: 0 24px;
-          border-bottom: 1px solid #e8e8e8;
-        }
-        
-        .tabs button {
-          padding: 12px 24px;
-          border: none;
-          background: none;
-          cursor: pointer;
-          font-size: 15px;
-          font-weight: 500;
-          color: #666;
-          border-bottom: 2px solid transparent;
-          margin-right: 8px;
-          transition: all 0.3s ease;
-          position: relative;
-          bottom: -1px;
-        }
-        
-        .tabs button.active {
-          color: #1890ff;
-          border-bottom-color: #1890ff;
-          font-weight: 600;
-          background-color: #f0f9ff;
-        }
-        
-        .update-card {
-          margin-bottom: 16px;
-          padding: 16px;
-          border: 1px solid #f0f0f0;
-          border-radius: 4px;
-          background: #fff;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-        }
-        
-        .update-header {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 8px;
-          font-size: 14px;
-          color: #666;
-        }
-        
-        .update-status {
-          margin: 8px 0;
-          font-weight: 500;
-        }
-        
-        .update-text {
-          margin: 12px 0;
-          line-height: 1.5;
-        }
-        
-        .update-photos {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-          margin-top: 12px;
-        }
-        
-        .photo-thumbnail {
-          width: 100px;
-          height: 100px;
-          border-radius: 4px;
-          overflow: hidden;
-          border: 1px solid #eee;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        
-        .photo-thumbnail:hover {
-          transform: scale(1.03);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        }
-        
-        .photo-thumbnail img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-        
-        .status-completed {
-          color: #52c41a;
-          font-weight: 500;
-          padding: 2px 8px;
-          border-radius: 4px;
-          background-color: #f6ffed;
-          border: 1px solid #b7eb8f;
-        }
-        
-        .status-in-progress {
-          color: #1890ff;
-          font-weight: 500;
-          padding: 2px 8px;
-          border-radius: 4px;
-          background-color: #e6f7ff;
-          border: 1px solid #91d5ff;
-        }
-        
-        .status-pending {
-          color: #faad14;
-          font-weight: 500;
-          padding: 2px 8px;
-          border-radius: 4px;
-          background-color: #fffbe6;
-          border: 1px solid #ffe58f;
-        }
-        
-        .status-rejected {
-          color: #ff4d4f;
-          font-weight: 500;
-          padding: 2px 8px;
-          border-radius: 4px;
-          background-color: #fff2f0;
-          border: 1px solid #ffccc7;
-        }
-        
-        .assigned-workers {
-          margin-top: 20px;
-          padding-top: 15px;
-          border-top: 1px solid #eee;
-        }
-        
-        .assigned-workers ul {
-          list-style: none;
-          padding: 0;
-          margin: 10px 0 0 0;
-        }
-        
-        .assigned-workers li {
-          padding: 5px 0;
-          border-bottom: 1px solid #f5f5f5;
-        }
-      `}</style>
+              ),
+            },
+          ]}
+        />
+      </Card>
     </div>
   );
 }

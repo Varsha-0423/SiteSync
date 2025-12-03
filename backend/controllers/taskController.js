@@ -514,24 +514,35 @@ const uploadExcel = async (req, res) => {
       'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
     };
 
+    const getRowValue = (row, ...keys) => {
+      for (const key of keys) {
+        if (row[key] !== undefined && row[key] !== null && row[key] !== '') return row[key];
+        const trimmedKey = Object.keys(row).find(k => k.trim().toLowerCase() === key.toLowerCase());
+        if (trimmedKey && row[trimmedKey] !== undefined && row[trimmedKey] !== null && row[trimmedKey] !== '') {
+          return row[trimmedKey];
+        }
+      }
+      return '';
+    };
+
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
       const rowNum = i + 2;
       
       try {
-        const activityId = row['Activity ID'] || '';
-        const activityName = row['Activity Name'] || '';
-        const startDate = row['Start Date'] || '';
-        const endDate = row['End Date'] || '';
-        const remarks = row['Remarks'] || 'N/A';
-        const strategy = row['Strategy'] || '';
+        const activityId = getRowValue(row, 'activityId', 'Activity ID');
+        const activityName = getRowValue(row, 'activityName', 'Activity Name');
+        const startDate = getRowValue(row, 'startDate', 'Start Date');
+        const endDate = getRowValue(row, 'endDate', 'End Date');
+        const remarks = getRowValue(row, 'remarks', 'Remarks') || 'N/A';
+        const strategy = getRowValue(row, 'strategy', 'Strategy');
         
-        const budgetedQuantity = Number(row['Budgeted Quantity']) || 0;
-        const prelimsStaffs = Number(row['Prelims Staffs']) || 0;
-        const overheadStaffs = Number(row['Overhead Staffs']) || 0;
-        const material = Number(row['Material']) || 0;
-        const equipment = Number(row['Equipment']) || 0;
-        const manpower = Number(row['Manpower']) || 0;
+        const budgetedQuantity = Number(getRowValue(row, 'budgetd quantity', 'Budgeted Quantity')) || 0;
+        const prelimsStaffs = Number(getRowValue(row, 'prelims staffs', 'Prelims Staffs')) || 0;
+        const overheadStaffs = Number(getRowValue(row, 'overhead staffs', 'Overhead Staffs')) || 0;
+        const material = Number(getRowValue(row, 'material', 'Material')) || 0;
+        const equipment = Number(getRowValue(row, 'equipment', 'Equipment')) || 0;
+        const manpower = Number(getRowValue(row, 'manpower', 'Manpower')) || 0;
 
         const parseExcelDate = (dateStr) => {
           if (!dateStr) return null;
@@ -678,12 +689,6 @@ const updateTodayTasks = async (req, res) => {
     session.startTransaction();
 
     try {
-      await Task.updateMany(
-        {},
-        { $set: { isForToday: false } },
-        { session }
-      );
-
       if (taskIds.length > 0) {
         const updateData = {
           isForToday: true,

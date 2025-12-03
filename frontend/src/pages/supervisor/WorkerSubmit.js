@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../../api";
 
-function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = false }) {
+function WorkerSubmit({ task: taskId, taskName, onClose, onWorkSubmitted, isSupervisor = false }) {
   const [formData, setFormData] = useState({
     worker: "",
     status: "in-progress", // Default status for new submissions
@@ -16,6 +16,7 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
   const [isLoading, setIsLoading] = useState(true);
   const [workerSearch, setWorkerSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [additionalWorkers, setAdditionalWorkers] = useState([]);
 
   // Fetch workers list if not a supervisor
   useEffect(() => {
@@ -275,9 +276,33 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: '600px', margin: '0 auto' }}>
+    <form onSubmit={handleSubmit} style={{ maxWidth: '600px', margin: '0 auto', position: 'relative', paddingTop: '80px' }}>
+      {/* Task Name */}
+      {taskName && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: '220px' }}>
+          <h3 style={{ margin: 0, fontSize: '18px', color: '#333' }}>Submit Work for: {taskName}</h3>
+        </div>
+      )}
+      
+      {/* Status */}
+      <div style={{ position: 'absolute', top: 0, right: 0, width: '200px' }}>
+        <label style={labelStyle}>Status *</label>
+        <select 
+          name="status"
+          value={formData.status}
+          onChange={handleChange}
+          style={inputStyle}
+          required
+        >
+          <option value="completed">Completed</option>
+          <option value="in-progress">In Progress</option>
+          <option value="on-hold">On Hold</option>
+          <option value="issues">Issues</option>
+        </select>
+      </div>
+
       {/* Worker Selection */}
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative', marginBottom: '15px' }}>
         <label style={labelStyle}>Select Worker *</label>
         <input
           type="text"
@@ -322,23 +347,6 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-        {/* Status */}
-        <div>
-          <label style={labelStyle}>Status *</label>
-          <select 
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            style={inputStyle}
-            required
-          >
-            <option value="completed">Completed</option>
-            <option value="in-progress">In Progress</option>
-            <option value="on-hold">On Hold</option>
-            <option value="issues">Issues</option>
-          </select>
-        </div>
-
         {/* Quantity */}
         <div>
           <label style={labelStyle}>Quantity *</label>
@@ -354,25 +362,25 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
             required
           />
         </div>
-      </div>
 
-      {/* Unit of Measurement */}
-      <div>
-        <label style={labelStyle}>Unit of Measurement *</label>
-        <select 
-          name="unit"
-          value={formData.unit}
-          onChange={handleChange}
-          style={inputStyle}
-          required
-        >
-          <option value="">-- Select Unit --</option>
-          {units.map(unit => (
-            <option key={unit.value} value={unit.value}>
-              {unit.label}
-            </option>
-          ))}
-        </select>
+        {/* Unit of Measurement */}
+        <div>
+          <label style={labelStyle}>Unit of Measurement *</label>
+          <select 
+            name="unit"
+            value={formData.unit}
+            onChange={handleChange}
+            style={inputStyle}
+            required
+          >
+            <option value="">-- Select Unit --</option>
+            {units.map(unit => (
+              <option key={unit.value} value={unit.value}>
+                {unit.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Work Description */}
@@ -392,6 +400,174 @@ function WorkerSubmit({ task: taskId, onClose, onWorkSubmitted, isSupervisor = f
           required
         />
       </div>
+
+      {/* Additional Workers */}
+      {additionalWorkers.map((addWorker, index) => {
+        const availableWorkers = workers.filter(w => {
+          const workerId = w._id || w.id;
+          if (workerId === formData.worker) return false;
+          return !additionalWorkers.some((aw, i) => i !== index && aw.worker === workerId);
+        });
+
+        return (
+          <div key={index} style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '15px', marginBottom: '15px',}}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              {/* <h4 style={{ margin: 0, fontSize: '16px' }}>Additional Worker #{index + 1}</h4> */}
+              <button
+                type="button"
+                onClick={() => setAdditionalWorkers(additionalWorkers.filter((_, i) => i !== index))}
+                style={{
+                  background: 'none', border: 'none', color: '#dc3545',
+                  cursor: 'pointer', fontSize: '20px', padding: 0
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Worker Selection */}
+            <div style={{ position: 'relative', marginBottom: '15px' }}>
+              <label style={labelStyle}>Select Worker *</label>
+              <input
+                type="text"
+                placeholder="Search and select worker..."
+                value={addWorker.workerSearch}
+                onChange={(e) => {
+                  const newWorkers = [...additionalWorkers];
+                  newWorkers[index].workerSearch = e.target.value;
+                  setAdditionalWorkers(newWorkers);
+                }}
+                onFocus={() => {
+                  const newWorkers = [...additionalWorkers];
+                  newWorkers[index].showDropdown = true;
+                  setAdditionalWorkers(newWorkers);
+                }}
+                style={inputStyle}
+              />
+              {addWorker.showDropdown && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0,
+                  maxHeight: '200px', overflowY: 'auto', backgroundColor: 'white',
+                  border: '1px solid #ddd', borderRadius: '4px', zIndex: 1000,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                  {availableWorkers
+                    .filter(worker => worker.name.toLowerCase().includes(addWorker.workerSearch.toLowerCase()))
+                    .map(worker => (
+                      <div
+                        key={worker._id || worker.id}
+                        onClick={() => {
+                          const newWorkers = [...additionalWorkers];
+                          newWorkers[index].worker = worker._id || worker.id;
+                          newWorkers[index].workerSearch = worker.name;
+                          newWorkers[index].showDropdown = false;
+                          setAdditionalWorkers(newWorkers);
+                        }}
+                        style={{
+                          padding: '10px', cursor: 'pointer',
+                          borderBottom: '1px solid #eee',
+                          backgroundColor: addWorker.worker === (worker._id || worker.id) ? '#e7f3ff' : 'white'
+                        }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = addWorker.worker === (worker._id || worker.id) ? '#e7f3ff' : 'white'}
+                      >
+                        {worker.name}
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+              {/* Quantity */}
+              <div>
+                <label style={labelStyle}>Quantity *</label>
+                <input
+                  type="number"
+                  value={addWorker.quantity}
+                  onChange={(e) => {
+                    const newWorkers = [...additionalWorkers];
+                    newWorkers[index].quantity = e.target.value;
+                    setAdditionalWorkers(newWorkers);
+                  }}
+                  placeholder="Enter quantity"
+                  min="0"
+                  step="0.01"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Unit of Measurement */}
+              <div>
+                <label style={labelStyle}>Unit of Measurement *</label>
+                <select
+                  value={addWorker.unit}
+                  onChange={(e) => {
+                    const newWorkers = [...additionalWorkers];
+                    newWorkers[index].unit = e.target.value;
+                    setAdditionalWorkers(newWorkers);
+                  }}
+                  style={inputStyle}
+                >
+                  <option value="">-- Select Unit --</option>
+                  {units.map(unit => (
+                    <option key={unit.value} value={unit.value}>
+                      {unit.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Work Description */}
+            <div>
+              <label style={labelStyle}>Work Description *</label>
+              <textarea
+                value={addWorker.description}
+                onChange={(e) => {
+                  const newWorkers = [...additionalWorkers];
+                  newWorkers[index].description = e.target.value;
+                  setAdditionalWorkers(newWorkers);
+                }}
+                placeholder="Describe the work done..."
+                rows="3"
+                style={{
+                  ...inputStyle,
+                  minHeight: '80px',
+                  resize: 'vertical'
+                }}
+              />
+              {index === additionalWorkers.length - 1 && (
+                <button
+                  type="button"
+                  onClick={() => setAdditionalWorkers([...additionalWorkers, { worker: '', workerSearch: '', showDropdown: false, quantity: '', unit: '', description: '' }])}
+                  style={{
+                    padding: '8px 16px', backgroundColor: '#007bff', color: 'white',
+                    border: 'none', borderRadius: '4px', cursor: 'pointer',
+                    fontSize: '14px', marginTop: '10px'
+                  }}
+                >
+                  + Add Worker
+                </button>
+              )}
+            </div>
+          </div>
+        );
+      })}
+
+      {additionalWorkers.length === 0 && (
+        <button
+          type="button"
+          onClick={() => setAdditionalWorkers([...additionalWorkers, { worker: '', workerSearch: '', showDropdown: false, quantity: '', unit: '', description: '' }])}
+          style={{
+            padding: '8px 16px', backgroundColor: '#007bff', color: 'white',
+            border: 'none', borderRadius: '4px', cursor: 'pointer',
+            fontSize: '14px', marginBottom: '15px'
+          }}
+        >
+          + Add Worker
+        </button>
+      )}
 
       {/* Attachments */}
       <div>

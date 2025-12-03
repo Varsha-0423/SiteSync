@@ -13,8 +13,8 @@ function SupervisorTaskAssignment() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [tempSelections, setTempSelections] = useState({}); // Track temporary selections per task
   const [workerSearchTerms, setWorkerSearchTerms] = useState({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [allTasks, setAllTasks] = useState([]);
 
   useEffect(() => {
     fetchTodayTasks();
@@ -41,8 +41,9 @@ function SupervisorTaskAssignment() {
       const response = await api.get("/tasks/supervisor-today");
       const tasksData = response.data.data || [];
       const updatedTasks = await checkAndUpdateTaskStatus(tasksData);
+      setAllTasks(Array.isArray(updatedTasks) ? updatedTasks : []);
       setTasks(Array.isArray(updatedTasks) ? updatedTasks : []);
-      setTempSelections({}); // Clear temp selections on refresh
+      setTempSelections({});
     } catch (error) {
       console.error("Error fetching today tasks:", error);
       setMessage("Error fetching today tasks");
@@ -182,19 +183,25 @@ function SupervisorTaskAssignment() {
     return JSON.stringify([...currentWorkerIds].sort()) !== JSON.stringify([...tempIds].sort());
   };
 
-  const filteredTasks = tasks.filter(task => {
-    // Apply status filter
-    const statusMatch = statusFilter === 'all' || task.status === statusFilter;
+  const handleDateFilter = (e) => {
+    const date = e.target.value;
+    setSelectedDate(date);
     
-    // Apply search query filter (case-insensitive)
-    const searchLower = searchQuery.toLowerCase();
-    const searchMatch = 
-      !searchQuery || 
-      (task.taskName && task.taskName.toLowerCase().includes(searchLower)) ||
-      (task.description && task.description.toLowerCase().includes(searchLower));
+    if (!date) {
+      setTasks(allTasks);
+      return;
+    }
     
-    return statusMatch && searchMatch;
-  });
+    const filterDate = new Date(date);
+    const filtered = allTasks.filter(task => {
+      if (!task.startDate || !task.endDate) return false;
+      const start = new Date(task.startDate);
+      const end = new Date(task.endDate);
+      return filterDate >= start && filterDate <= end;
+    });
+    
+    setTasks(filtered);
+  };
 
   return (
     <div style={{ padding: "20px", position: 'relative' }}>
@@ -208,61 +215,40 @@ function SupervisorTaskAssignment() {
             backgroundColor: 'white', padding: '20px', borderRadius: '8px',
             width: '80%', maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3>Submit Work for: {selectedTask.taskName}</h3>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '15px' }}>
               <button onClick={closeWorkerSubmit} style={{
                 background: 'none', border: 'none', fontSize: '20px',
                 cursor: 'pointer', color: '#666'
               }}>×</button>
             </div>
-            <WorkerSubmit task={selectedTask._id} onClose={closeWorkerSubmit} onWorkSubmitted={updateTaskStatus} />
+            <WorkerSubmit task={selectedTask._id} taskName={selectedTask.taskName} onClose={closeWorkerSubmit} onWorkSubmitted={updateTaskStatus} />
           </div>
         </div>
       )}
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
-        <h2 style={{ margin: 0 }}>Today's Task Assignment</h2>
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-          <div>
-            <input
-              type="text"
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                padding: '6px 10px',
-                borderRadius: '4px',
-                border: '1px solid #ccc',
-                width: '200px'
-              }}
-            />
-          </div>
-          <div>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                padding: '6px 10px',
-                borderRadius: '4px',
-                border: '1px solid #ccc',
-                backgroundColor: 'white',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="on-schedule">On Schedule</option>
-              <option value="behind">Behind</option>
-              <option value="ahead">Ahead</option>
-              <option value="completed">Completed</option>
-              <option value="overdue">Overdue</option>
-            </select>
-          </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <div>
+          <h2 style={{ margin: '0 0 5px 0' }}>Today's Task Assignment</h2>
+          <p style={{ color: "#666", margin: 0 }}>
+            Select workers for each task and click "Assign Workers" to confirm.
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label style={{ fontSize: '20px' }}>📅</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={handleDateFilter}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              cursor: 'pointer'
+            }}
+          />
         </div>
       </div>
-      <p style={{ color: "#666", marginBottom: "20px" }}>
-        Select workers for each task and click "Assign Workers" to confirm.
-      </p>
 
       {message && (
         <div style={{
@@ -275,11 +261,11 @@ function SupervisorTaskAssignment() {
 
       {loading && tasks.length === 0 ? (
         <div>Loading today's tasks...</div>
-      ) : filteredTasks.length === 0 ? (
-        <div>No tasks found matching your criteria.</div>
+      ) : tasks.length === 0 ? (
+        <div>No tasks assigned for today.</div>
       ) : (
         <div style={{ display: "grid", gap: "15px" }}>
-          {filteredTasks.map((task) => {
+          {tasks.map((task) => {
             const selectedWorkers = getSelectedWorkers(task._id);
             const showAssignButton = hasChanges(task._id);
             
@@ -289,30 +275,32 @@ function SupervisorTaskAssignment() {
                 backgroundColor: "#fff", boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                  <div>
+                  <div style={{ flex: 1 }}>
                     <h4 style={{ margin: "0 0 5px 0" }}>{task.taskName}</h4>
-                    <p style={{ margin: "0 0 10px 0", color: "#666" }}>{task.description}</p>
+                    <p style={{ margin: "0 0 8px 0", color: "#666" }}>{task.description}</p>
+                    <div style={{ fontSize: '13px', color: '#555' }}>
+                      <span> Start: {task.startDate ? new Date(task.startDate).toLocaleDateString() : 'N/A'}</span>
+                      <span style={{ marginLeft: '15px' }}> End: {task.endDate ? new Date(task.endDate).toLocaleDateString() : 'N/A'}</span>
+                    </div>
                   </div>
                   <div style={{ display: "flex", gap: "10px" }}>
-
-                  <div style={{ marginBottom: "10px" }}>
-                    <span 
-                      style={{
-                        color: getStatusColor(task.status),
-                        fontWeight: 500,
-                        textTransform: 'capitalize',
-                        padding: '3px 8px',
-                        borderRadius: '4px',
-                        backgroundColor: `${getStatusColor(task.status)}20`,
-                        display: 'inline-block',
-                        minWidth: '80px',
-                        textAlign: 'center'
-                      }}
-                    >
-                      {task.status.replace('-', ' ')}
-                    </span>
-                  </div>
-
+                    <div style={{ marginBottom: "10px" }}>
+                      <span 
+                        style={{
+                          color: getStatusColor(task.status),
+                          fontWeight: 500,
+                          textTransform: 'capitalize',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: `${getStatusColor(task.status)}20`,
+                          display: 'inline-block',
+                          minWidth: '80px',
+                          textAlign: 'center'
+                        }}
+                      >
+                        {task.status.replace('-', ' ')}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
