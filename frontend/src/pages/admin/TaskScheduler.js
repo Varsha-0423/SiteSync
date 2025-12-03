@@ -461,49 +461,24 @@ function TaskScheduler() {
                     <div style={{ marginLeft: '30px', fontSize: '14px', color: '#666' }}>
                       <span>Date: {new Date(task.date).toLocaleDateString()}</span>
                       {task.assignedWorkers && task.assignedWorkers.length > 0 && (
-                        <span style={{ marginLeft: '15px',color: '#e06767ff' }}>
+                        <span style={{ marginLeft: '15px', color: '#e06767ff' }}>
                           Assigned
                         </span>
                       )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    {/* <span style={{
-                      padding: '4px 8px',
+                    <span style={{
+                      padding: '4px 12px',
                       borderRadius: '12px',
                       fontSize: '12px',
-                      backgroundColor: getPriorityColor(task.priority),
+                      backgroundColor: getStatusColor(task.status),
                       color: 'white',
-                      fontWeight: 'bold'
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase'
                     }}>
-                      {task.priority.toUpperCase()}
-                    </span> */}
-                    <select
-                      value={task.status}
-                      onChange={(e) => updateTaskStatus(task._id, e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        padding: '4px 8px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        backgroundColor: getStatusColor(task.status),
-                        color: 'white',
-                        fontWeight: 'bold',
-                        border: 'none',
-                        outline: 'none',
-                        cursor: 'pointer',
-                        WebkitAppearance: 'none',
-                        MozAppearance: 'none',
-                        textAlign: 'center',
-                        textTransform: 'uppercase'
-                      }}
-                    >
-                      <option value="pending" style={{ backgroundColor: '#6c757d' }}>PENDING</option>
-                      <option value="on-schedule" style={{ backgroundColor: '#28a745' }}>ON-SCHEDULE</option>
-                      <option value="behind" style={{ backgroundColor: '#dc3545' }}>BEHIND</option>
-                      <option value="ahead" style={{ backgroundColor: '#17a2b8' }}>AHEAD</option>
-                      <option value="completed" style={{ backgroundColor: '#28a745' }}>COMPLETED</option>
-                    </select>
+                      {task.status.replace('-', ' ')}
+                    </span>
                   </div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>

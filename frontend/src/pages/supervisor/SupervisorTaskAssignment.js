@@ -155,12 +155,36 @@ function SupervisorTaskAssignment() {
     setSelectedTask(null);
   };
 
-  const updateTaskStatus = (taskId, status) => {
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task._id === taskId ? { ...task, status: status.toLowerCase() } : task
-      )
-    );
+  const updateTaskStatus = async (taskId, status) => {
+    try {
+      setLoading(true);
+      // Make API call to update task status
+      await api.put(`/tasks/${taskId}`, { status: status.toLowerCase() });
+      
+      // Update local state
+      setTasks(prevTasks => 
+        prevTasks.map(task => 
+          task._id === taskId ? { ...task, status: status.toLowerCase() } : task
+        )
+      );
+      
+      // Also update allTasks to keep the filter in sync
+      setAllTasks(prevTasks => 
+        prevTasks.map(task => 
+          task._id === taskId ? { ...task, status: status.toLowerCase() } : task
+        )
+      );
+      
+      setMessage('Task status updated successfully');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      setMessage(error.response?.data?.message || 'Error updating task status');
+      // Re-fetch tasks to ensure we have the latest data
+      await fetchTodayTasks();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getSelectedWorkers = (taskId) => {
@@ -284,22 +308,44 @@ function SupervisorTaskAssignment() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: "10px" }}>
-                    <div style={{ marginBottom: "10px" }}>
-                      <span 
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <div style={{ marginBottom: "10px" }}>
+                        <span 
+                          style={{
+                            color: getStatusColor(task.status),
+                            fontWeight: 500,
+                            textTransform: 'capitalize',
+                            padding: '3px 8px',
+                            borderRadius: '4px',
+                            backgroundColor: `${getStatusColor(task.status)}20`,
+                            display: 'inline-block',
+                            minWidth: '80px',
+                            textAlign: 'center'
+                          }}
+                        >
+                          {task.status.replace('-', ' ')}
+                        </span>
+                      </div>
+                      <select
+                        value={task.status}
+                        onChange={(e) => updateTaskStatus(task._id, e.target.value)}
                         style={{
-                          color: getStatusColor(task.status),
-                          fontWeight: 500,
-                          textTransform: 'capitalize',
-                          padding: '3px 8px',
+                          padding: '4px 8px',
                           borderRadius: '4px',
-                          backgroundColor: `${getStatusColor(task.status)}20`,
-                          display: 'inline-block',
-                          minWidth: '80px',
-                          textAlign: 'center'
+                          border: '1px solid #ddd',
+                          backgroundColor: 'white',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          height: '28px'
                         }}
+                        disabled={loading}
                       >
-                        {task.status.replace('-', ' ')}
-                      </span>
+                        <option value="pending">Pending</option>
+                        <option value="on-schedule">On Schedule</option>
+                        <option value="behind">Behind</option>
+                        <option value="ahead">Ahead</option>
+                        <option value="completed">Completed</option>
+                      </select>
                     </div>
                   </div>
                 </div>
