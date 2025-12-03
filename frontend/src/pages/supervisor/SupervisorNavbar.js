@@ -4,7 +4,7 @@ import { Layout, Menu, Button, Dropdown, Avatar, Typography, theme } from 'antd'
 import {
   CheckSquareOutlined,
   LogoutOutlined,
-  UploadOutlined,
+    DashboardOutlined,
   UserOutlined,
   ProfileOutlined,
 } from '@ant-design/icons';
@@ -77,7 +77,7 @@ const SupervisorNavbar = () => {
             backgroundColor: 'transparent'
           }}
         >
-          <Menu.Item key="2" icon={<UploadOutlined />}>
+          <Menu.Item key="2" icon={<DashboardOutlined />}>
             <NavLink to="/supervisor/dashboard">Dashboard</NavLink>
           </Menu.Item>
           <Menu.Item key="1" icon={<CheckSquareOutlined />}>

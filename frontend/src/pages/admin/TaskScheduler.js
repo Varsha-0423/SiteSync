@@ -14,6 +14,7 @@ function TaskScheduler() {
   const [selectedSupervisor, setSelectedSupervisor] = useState('');
   const [supervisorError, setSupervisorError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [tasksError, setTasksError] = useState('');
   const [socket, setSocket] = useState(null);
   const navigate = useNavigate();
@@ -197,13 +198,24 @@ function TaskScheduler() {
     }
   };
 
-  // Filter tasks based on selected status
+  // Filter tasks based on selected status and search query
   const filteredTasks = React.useMemo(() => {
     if (!allTasks || !Array.isArray(allTasks)) return [];
-    return statusFilter === 'all' 
-      ? [...allTasks] 
-      : allTasks.filter(task => task.status === statusFilter);
-  }, [allTasks, statusFilter]);
+    
+    return allTasks.filter(task => {
+      // Apply status filter
+      const statusMatch = statusFilter === 'all' || task.status === statusFilter;
+      
+      // Apply search query filter (case-insensitive)
+      const searchLower = searchQuery.toLowerCase();
+      const searchMatch = 
+        !searchQuery || 
+        (task.taskName && task.taskName.toLowerCase().includes(searchLower)) ||
+        (task.description && task.description.toLowerCase().includes(searchLower));
+      
+      return statusMatch && searchMatch;
+    });
+  }, [allTasks, statusFilter, searchQuery]);
 
   const fetchSupervisors = async () => {
     try {
@@ -261,15 +273,6 @@ function TaskScheduler() {
       setMessage('Error scheduling tasks');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'high': return '#dc3545';
-      case 'medium': return '#ffc107';
-      case 'low': return '#28a745';
-      default: return '#6c757d';
     }
   };
 
@@ -355,33 +358,64 @@ function TaskScheduler() {
           </div>
         )}
       </div>
-{/* ✔️ FILTER BUTTON + TITLE */}
+
       <div style={{
         marginBottom: '20px',
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        flexDirection: 'column',
+        gap: '10px'
       }}>
-        <h3>All Available Tasks ({filteredTasks.length})</h3>
-
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          style={{
-            padding: '6px 10px',
-            borderRadius: '4px',
-            border: '1px solid #ccc',
-            cursor: 'pointer'
-          }}
-        >
-          <option value="all">All</option>
-          <option value="pending">Pending</option>
-          <option value="on-schedule">On-Schedule</option>
-          <option value="behind">Behind</option>
-          <option value="ahead">Ahead</option>
-          <option value="completed">Completed</option>
-        </select>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '10px'
+        }}>
+          <h3 style={{ margin: 0 }}>All Available Tasks ({filteredTasks.length})</h3>
+          <div style={{
+            display: 'flex',
+            gap: '10px',
+            flexWrap: 'wrap',
+            alignItems: 'center'
+          }}>
+            <div>
+              <input
+                type="text"
+                placeholder="Search tasks..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc',
+                  width: '200px',
+                  marginRight: '15px'
+                }}
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{
+                padding: '6px 10px',
+                borderRadius: '4px',
+                border: '1px solid #ccc',
+                cursor: 'pointer',
+                minWidth: '150px'
+              }}
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="on-schedule">On-Schedule</option>
+              <option value="behind">Behind</option>
+              <option value="ahead">Ahead</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+        </div>
       </div>
+
       <div style={{ marginBottom: '20px' }}>
         {loading ? (
           <p style={{ color: '#666', fontStyle: 'italic' }}>Loading tasks...</p>
@@ -427,14 +461,14 @@ function TaskScheduler() {
                     <div style={{ marginLeft: '30px', fontSize: '14px', color: '#666' }}>
                       <span>Date: {new Date(task.date).toLocaleDateString()}</span>
                       {task.assignedWorkers && task.assignedWorkers.length > 0 && (
-                        <span style={{ marginLeft: '15px' }}>
-                          Assigned: {task.assignedWorkers.map(w => w.name).join(', ')}
+                        <span style={{ marginLeft: '15px',color: '#e06767ff' }}>
+                          Assigned
                         </span>
                       )}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <span style={{
+                    {/* <span style={{
                       padding: '4px 8px',
                       borderRadius: '12px',
                       fontSize: '12px',
@@ -443,7 +477,7 @@ function TaskScheduler() {
                       fontWeight: 'bold'
                     }}>
                       {task.priority.toUpperCase()}
-                    </span>
+                    </span> */}
                     <select
                       value={task.status}
                       onChange={(e) => updateTaskStatus(task._id, e.target.value)}
@@ -628,7 +662,7 @@ function TaskScheduler() {
                       }}>
                         {task.taskName}
                       </span>
-                      <span style={{
+                      {/* <span style={{
                         marginLeft: 'auto',
                         padding: '2px 8px',
                         borderRadius: '12px',
@@ -638,7 +672,7 @@ function TaskScheduler() {
                         fontWeight: 'bold'
                       }}>
                         {task.priority}
-                      </span>
+                      </span> */}
                     </div>
                   ))
                 )}

@@ -586,7 +586,7 @@ function Dashboard() {
                           <Text type="secondary" style={{ marginRight: 8 }}>
                             {item.date ? new Date(item.date).toLocaleDateString() : "No Date"}
                           </Text>
-                          <Tag color={getStatusColor(item.status)}>{(item.priority || "N/A").toUpperCase()}</Tag>
+                          {/* <Tag color={getStatusColor(item.status)}>{(item.priority || "N/A").toUpperCase()}</Tag> */}
                         </div>
                       </>
                     }

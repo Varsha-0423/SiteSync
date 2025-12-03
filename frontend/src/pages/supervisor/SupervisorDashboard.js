@@ -1,8 +1,31 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, Row, Col, Typography, Divider, Spin } from "antd";
-import { ClockCircleOutlined, CheckCircleOutlined, WarningOutlined, FileTextOutlined, TeamOutlined, BarChartOutlined } from "@ant-design/icons";
-import { getDashboardStats } from "../../services/dashboardService";
+import { Card, Row, Col, Typography, Divider, Spin, Modal } from "antd";
+import { ClockCircleOutlined, CheckCircleOutlined, WarningOutlined } from "@ant-design/icons";
+import { getDashboardStats, getTasks } from "../../services/dashboardService";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar, Pie, Line } from "react-chartjs-2";
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend
+);
 
 const { Title, Text } = Typography;
 
@@ -13,8 +36,12 @@ function SupervisorDashboard() {
     totalTasks: 0,
     completedTasks: 0,
     issuesTasks: 0,
-    pendingTasks: 0
+    pendingTasks: 0,
+    userStats: []
   });
+  const [recentTasks, setRecentTasks] = useState([]);
+  const [chartModalOpen, setChartModalOpen] = useState(false);
+  const [activeChart, setActiveChart] = useState(null);
 
   useEffect(() => {
     fetchStats();
@@ -25,7 +52,19 @@ function SupervisorDashboard() {
       setLoading(true);
       const response = await getDashboardStats();
       if (response?.data) {
-        setStats(response.data);
+        console.log('Dashboard stats:', response.data);
+        setStats({
+          ...response.data,
+          userStats: response.data.userStats || []
+        });
+      }
+      
+      const tasks = await getTasks();
+      if (tasks) {
+        const sorted = tasks.sort((a, b) => 
+          new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)
+        ).slice(0, 5);
+        setRecentTasks(sorted);
       }
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -87,21 +126,211 @@ function SupervisorDashboard() {
         </Row>
       )}
 
+      <Divider />
+
+      {/* Charts Section */}
+      <Title level={4}>Task Analytics</Title>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={8}>
+          <Card 
+            title="Task Status Distribution" 
+            hoverable
+            style={{ cursor: 'pointer', height: 230 }}
+            onClick={() => {
+              setActiveChart('status');
+              setChartModalOpen(true);
+            }}
+          >
+            <div style={{ height: 150 }}>
+              <Pie
+                data={{
+                  labels: ['Pending', 'Completed', 'Issues'],
+                  datasets: [{
+                    data: [stats.pendingTasks || 0, stats.completedTasks || 0, stats.issuesTasks || 0],
+                    backgroundColor: ['#1890ff', '#52c41a', '#ff4d4f'],
+                  }]
+                }}
+                options={{ maintainAspectRatio: false, responsive: true }}
+              />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <Text type="secondary">Click to enlarge</Text>
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} md={8}>
+          <Card 
+            title="Tasks per Worker"
+            hoverable
+            style={{ cursor: 'pointer', height: 230 }}
+            onClick={() => {
+              setActiveChart('worker');
+              setChartModalOpen(true);
+            }}
+          >
+            <div style={{ height: 150 }}>
+              {(stats.userStats || []).length > 0 ? (
+                <Bar
+                  data={{
+                    labels: stats.userStats.filter(u => (u.totalTasks || 0) > 0).map(u => u.user || u.name || 'Unknown'),
+                    datasets: [{
+                      label: 'Tasks',
+                      data: stats.userStats.filter(u => (u.totalTasks || 0) > 0).map(u => u.totalTasks || u.taskCount || u.count || 0),
+                      backgroundColor: '#1890ff',
+                    }]
+                  }}
+                  options={{ maintainAspectRatio: false, responsive: true, plugins: { legend: { display: false } } }}
+                />
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <Text type="secondary">No worker data available</Text>
+                </div>
+              )}
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <Text type="secondary">Click to enlarge</Text>
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} md={8}>
+          <Card 
+            title="Completion Rate"
+            hoverable
+            style={{ cursor: 'pointer', height: 230 }}
+            onClick={() => {
+              setActiveChart('completion');
+              setChartModalOpen(true);
+            }}
+          >
+            <div style={{ height: 150 }}>
+              <Pie
+                data={{
+                  labels: ['Completed', 'In Progress'],
+                  datasets: [{
+                    data: [
+                      stats.completedTasks || 0,
+                      (stats.totalTasks || 0) - (stats.completedTasks || 0)
+                    ],
+                    backgroundColor: ['#52c41a', '#faad14'],
+                  }]
+                }}
+                options={{ maintainAspectRatio: false, responsive: true }}
+              />
+            </div>
+            <div style={{ marginTop: 12 }}>
+              <Text type="secondary">Click to enlarge</Text>
+            </div>
+          </Card>
+        </Col>
+      </Row>
+
+      <Divider />
 
       {/* Recent Activity */}
-      <Title level={4}> Recent Activity</Title>
+      <Title level={4}>Recent Activity</Title>
       <Card>
-        {[
-          "Task #A204 completed by John Doe",
-          "Issue reported by worker in Task #A198",
-          "Task #A230 assigned to Rakesh"
-        ].map((activity, i) => (
-          <div key={i} style={{ padding: "12px 0", borderBottom: i < 2 ? "1px solid #f0f0f0" : "none", display: "flex", justifyContent: "space-between" }}>
-            <Text>{activity}</Text>
-            <Text type="secondary" style={{ fontSize: "12px" }}>1h ago</Text>
+        {recentTasks.length > 0 ? (
+          recentTasks.map((task, i) => {
+            let timeAgo = 'Recently';
+            if (task.updatedAt) {
+              const diffMs = Date.now() - new Date(task.updatedAt);
+              const hours = Math.floor(diffMs / (1000 * 60 * 60));
+              const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+              if (hours > 0) {
+                timeAgo = `${hours}h ${mins}m ago`;
+              } else if (mins > 0) {
+                timeAgo = `${mins}m ago`;
+              } else {
+                timeAgo = 'Just now';
+              }
+            }
+            const workers = task.assignedWorkers?.map(w => w.name).join(', ') || 'Unassigned';
+            return (
+              <div key={task._id} style={{ padding: "12px 16px", borderBottom: i < recentTasks.length - 1 ? "1px solid #f0f0f0" : "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ flex: 1, marginRight: '16px' }}>
+                  <Text strong>{task.taskName}</Text>
+                  <div style={{ marginTop: '4px' }}>
+                    <Text type="secondary" style={{ fontSize: "13px" }}>{workers} • {task.status || 'pending'}</Text>
+                  </div>
+                </div>
+                <Text type="secondary" style={{ fontSize: "12px", whiteSpace: 'nowrap' }}>{timeAgo}</Text>
+              </div>
+            );
+          })
+        ) : (
+          <div style={{ padding: "12px 16px" }}>
+            <Text type="secondary">No recent activity</Text>
           </div>
-        ))}
+        )}
       </Card>
+
+      {/* Chart Modal */}
+      <Modal
+        open={chartModalOpen}
+        onCancel={() => setChartModalOpen(false)}
+        footer={null}
+        width="90vw"
+        style={{ top: 20 }}
+        bodyStyle={{ padding: 24, minHeight: "60vh" }}
+      >
+        {activeChart === 'status' && (
+          <div style={{ height: "70vh" }}>
+            <Title level={4}>Task Status Distribution</Title>
+            <Pie
+              data={{
+                labels: ['Pending', 'Completed', 'Issues'],
+                datasets: [{
+                  data: [stats.pendingTasks || 0, stats.completedTasks || 0, stats.issuesTasks || 0],
+                  backgroundColor: ['#1890ff', '#52c41a', '#ff4d4f'],
+                }]
+              }}
+              options={{ maintainAspectRatio: false }}
+            />
+          </div>
+        )}
+
+        {activeChart === 'worker' && (
+          <div style={{ height: "70vh" }}>
+            <Title level={4}>Tasks per Worker</Title>
+            {(stats.userStats || []).length > 0 ? (
+              <Bar
+                data={{
+                  labels: stats.userStats.filter(u => (u.totalTasks || 0) > 0).map(u => u.user || u.name || 'Unknown'),
+                  datasets: [{
+                    label: 'Tasks',
+                    data: stats.userStats.filter(u => (u.totalTasks || 0) > 0).map(u => u.totalTasks || u.taskCount || u.count || 0),
+                    backgroundColor: '#1890ff',
+                  }]
+                }}
+                options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }}
+              />
+            ) : (
+              <Text type="secondary">No worker data available</Text>
+            )}
+          </div>
+        )}
+
+        {activeChart === 'completion' && (
+          <div style={{ height: "70vh" }}>
+            <Title level={4}>Completion Rate</Title>
+            <Pie
+              data={{
+                labels: ['Completed', 'In Progress'],
+                datasets: [{
+                  data: [
+                    stats.completedTasks || 0,
+                    (stats.totalTasks || 0) - (stats.completedTasks || 0)
+                  ],
+                  backgroundColor: ['#52c41a', '#faad14'],
+                }]
+              }}
+              options={{ maintainAspectRatio: false }}
+            />
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
