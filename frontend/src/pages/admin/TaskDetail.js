@@ -13,7 +13,8 @@ import {
   Row,
   Col,
   message,
-  Modal
+  Modal,
+  Progress
 } from "antd";
 
 function TaskDetail() {
@@ -135,7 +136,7 @@ function TaskDetail() {
   return (
     <>
       <div>
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: 24 }}>
         <Button onClick={() => navigate(-1)} style={{ marginBottom: 20 }}>
           ← Back
         </Button>
@@ -146,13 +147,94 @@ function TaskDetail() {
         style={{
           borderRadius: 12,
           boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+          margin: 40,
+          marginTop: 20,
+          marginBottom: 20
         }}
         extra={
-          <Tag color={getStatusColor(task.status)}>
-            {task.status?.toUpperCase()}
+          <Tag color={getStatusColor(task.status)} style={{ textTransform: 'capitalize' }}>
+            {task.status}
           </Tag>
         }
       >
+        <div style={{ marginBottom: 16, display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 300, maxWidth: 500 }}>
+            <div style={{ marginBottom: 8 }}>Progress</div>
+            <Progress 
+              percent={task.progress || 0} 
+              status={task.progress === 100 ? 'success' : 'active'}
+              strokeColor={task.progress === 100 ? '#52c41a' : '#1890ff'}
+              style={{ marginBottom: 16 }}
+            />
+          </div>
+          
+          <div style={{ flex: 1, minWidth: 200, maxWidth: 400 }}>
+            <div style={{ marginBottom: 8 }}>Quantities</div>
+            <div style={{ 
+              background: '#f8f9fa', 
+              borderRadius: 8, 
+              padding: '16px',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '16px'
+            }}>
+              {task.budgetedQuantity > 0 && (
+                <>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Budgeted</div>
+                    <div style={{ 
+                      fontWeight: 600, 
+                      fontSize: 18,
+                      color: '#1890ff'
+                    }}>
+                      {task.budgetedQuantity.toFixed(2)}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Remaining</div>
+                    <div style={{ 
+                      fontWeight: 600, 
+                      fontSize: 18,
+                      color: task.budgetedQuantity - (workReports.reduce((sum, report) => sum + (report.quantity || 0), 0)) <= 0 ? '#ff4d4f' : '#52c41a'
+                    }}>
+                      {(task.budgetedQuantity - workReports.reduce((sum, report) => sum + (report.quantity || 0), 0)).toFixed(2)}
+                      {workReports.length > 0 && (
+                        <span style={{ 
+                          fontSize: 12, 
+                          color: '#666',
+                          marginLeft: 8,
+                          fontWeight: 'normal'
+                        }}>
+                          ({workReports.length} {workReports.length === 1 ? 'update' : 'updates'})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+              {/*
+              {task.material > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: '#666' }}>Material</div>
+                  <div style={{ fontWeight: 500 }}>{task.material}</div>
+                </div>
+              )}
+              {task.manpower > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: '#666' }}>Manpower</div>
+                  <div style={{ fontWeight: 500 }}>{task.manpower}</div>
+                </div>
+              )}
+              {task.equipment > 0 && (
+                <div>
+                  <div style={{ fontSize: 12, color: '#666' }}>Equipment</div>
+                  <div style={{ fontWeight: 500 }}>{task.equipment}</div>
+                </div>
+              )}
+              */}
+            </div>
+          </div>
+        </div>
         <Tabs
           type="card"
           defaultActiveKey="1"
