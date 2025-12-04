@@ -265,26 +265,59 @@ function TaskDetail() {
                           </p>
                         )}
 
-                        {report.photoUrls.length > 0 && (
-                          <>
+                        {(report.photoUrls?.length > 0 || report.photoUrl) && (
+                          <div style={{ marginTop: 16 }}>
                             <strong>Photos:</strong>
                             <Row gutter={[16, 16]} style={{ marginTop: 10 }}>
-                              {report.photoUrls.map((url, i) => (
-                                <Col key={i} span={6}>
-                                  <Image
-                                    src={url}
-                                    width="100%"
-                                    height={120}
-                                    style={{
-                                      objectFit: "cover",
-                                      borderRadius: 8,
-                                      border: "1px solid #eee",
-                                    }}
-                                  />
-                                </Col>
-                              ))}
+                              {report.photoUrls?.length > 0 
+                                ? report.photoUrls.map((url, i) => (
+                                    <Col key={i} span={6}>
+                                      <div style={{ 
+                                        position: 'relative', 
+                                        paddingBottom: '100%',
+                                        borderRadius: 8,
+                                        overflow: 'hidden',
+                                        backgroundColor: '#f9f9f9'
+                                      }}>
+                                        <img
+                                          src={url.startsWith('http') ? url : `http://localhost:5000${url}`}
+                                          style={{
+                                            position: 'absolute',
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'contain',
+                                            backgroundColor: 'white'
+                                          }}
+                                          alt={`Work image ${i + 1}`}
+                                        />
+                                      </div>
+                                    </Col>
+                                  ))
+                                : report.photoUrl && (
+                                    <Col span={6}>
+                                      <div style={{ 
+                                        position: 'relative', 
+                                        paddingBottom: '100%',
+                                        borderRadius: 8,
+                                        overflow: 'hidden',
+                                        backgroundColor: '#f9f9f9'
+                                      }}>
+                                        <img
+                                          src={report.photoUrl.startsWith('http') ? report.photoUrl : `http://localhost:5000${report.photoUrl}`}
+                                          style={{
+                                            position: 'absolute',
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'contain',
+                                            backgroundColor: 'white'
+                                          }}
+                                          alt="Work image"
+                                        />
+                                      </div>
+                                    </Col>
+                                  )}
                             </Row>
-                          </>
+                          </div>
                         )}
                       </Card>
                     ))

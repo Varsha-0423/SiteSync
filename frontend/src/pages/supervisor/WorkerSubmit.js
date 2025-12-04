@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import api from "../../api";
+import axios from "axios";
 
 function WorkerSubmit({ task: taskId, taskName, onClose, onWorkSubmitted, isSupervisor = false }) {
   const [formData, setFormData] = useState({
@@ -148,20 +149,35 @@ function WorkerSubmit({ task: taskId, taskName, onClose, onWorkSubmitted, isSupe
             const formData = new FormData();
             formData.append('file', file);
             
-            // Use the correct upload endpoint
-            const response = await api.post('/api/uploads', formData, {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-                'Authorization': `Bearer ${localStorage.getItem('token')}` // Include auth token
+            try {
+              // Use the correct upload endpoint with /api/upload
+              const response = await axios.post('http://localhost:5000/api/upload', formData, {
+                headers: {
+                  'Content-Type': 'multipart/form-data',
+                  'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+              });
+              
+              console.log('Upload response:', response.data);
+              
+              // Handle different possible response structures
+              if (response.data && response.data.success) {
+                // Try different possible paths to the URL in the response
+                if (response.data.url) {
+                  return response.data.url;
+                } else if (response.data.file && response.data.file.path) {
+                  return response.data.file.path;
+                } else if (response.data.fileUrl) {
+                  return response.data.fileUrl;
+                }
               }
-            });
-            
-            // Handle the response based on the actual API response structure
-            if (response.data && response.data.success && response.data.url) {
-              return response.data.url;
-            } else if (response.data && response.data.file && response.data.file.path) {
-              // Handle case where URL is in file.path
-              return response.data.file.path;
+              
+              // If we get here, the response format wasn't as expected
+              console.error('Unexpected response format:', response.data);
+              throw new Error('Unexpected response format from server');
+            } catch (uploadError) {
+              console.error('Error in file upload:', uploadError);
+              throw uploadError; // Re-throw to be caught by the outer catch
             }
             
             throw new Error('Invalid response from server');
@@ -191,7 +207,7 @@ function WorkerSubmit({ task: taskId, taskName, onClose, onWorkSubmitted, isSupe
           status: formData.status,
           updateText: formData.description,
           photoUrl: photoUrls[0] || '', // For backward compatibility
-          photoUrls: photoUrls, // New field for multiple images
+          photoUrls: photoUrls.length > 0 ? photoUrls : undefined, // Only include if there are photos
           quantity: formData.quantity,
           unit: formData.unit,
           worker: formData.worker,
