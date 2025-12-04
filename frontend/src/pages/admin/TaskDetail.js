@@ -12,12 +12,24 @@ import {
   Image,
   Row,
   Col,
-  message
+  message,
+  Modal
 } from "antd";
 
 function TaskDetail() {
   const { taskId } = useParams();
   const navigate = useNavigate();
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewImage, setPreviewImage] = useState('');
+  const [previewTitle, setPreviewTitle] = useState('');
+
+  const handlePreview = async (url, title = '') => {
+    setPreviewImage(url.startsWith('http') ? url : `http://localhost:5000${url}`);
+    setPreviewTitle(title);
+    setPreviewVisible(true);
+  };
+
+  const handleCancel = () => setPreviewVisible(false);
 
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -84,20 +96,24 @@ function TaskDetail() {
   // LOADING UI
   if (loading)
     return (
-      <div style={{ padding: 80, textAlign: "center" }}>
-        <Spin size="large" />
+      <div>
+        <div style={{ padding: 80, textAlign: "center" }}>
+          <Spin size="large" />
+        </div>
       </div>
     );
 
   // ERROR UI
   if (error)
     return (
-      <Card style={{ margin: 40, padding: 40, textAlign: "center" }}>
-        <h3>{error}</h3>
-        <Button style={{ marginTop: 20 }} onClick={() => navigate(-1)}>
-          Go Back
-        </Button>
-      </Card>
+      <div>
+        <Card style={{ margin: 40, padding: 40, textAlign: "center" }}>
+          <h3>{error}</h3>
+          <Button style={{ marginTop: 20 }} onClick={() => navigate(-1)}>
+            Go Back
+          </Button>
+        </Card>
+      </div>
     );
 
   // STATUS COLOR LOGIC
@@ -117,10 +133,13 @@ function TaskDetail() {
   };
 
   return (
-    <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
-      <Button onClick={() => navigate(-1)} style={{ marginBottom: 20 }}>
-        ← Back
-      </Button>
+    <>
+      <div>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
+        <Button onClick={() => navigate(-1)} style={{ marginBottom: 20 }}>
+          ← Back
+        </Button>
+      </div>
 
       <Card
         title={task.taskName || "Task Details"}
@@ -286,9 +305,11 @@ function TaskDetail() {
                                             width: '100%',
                                             height: '100%',
                                             objectFit: 'contain',
-                                            backgroundColor: 'white'
+                                            backgroundColor: 'white',
+                                            cursor: 'pointer'
                                           }}
                                           alt={`Work image ${i + 1}`}
+                                          onClick={() => handlePreview(url, `Work Image ${i + 1}`)}
                                         />
                                       </div>
                                     </Col>
@@ -309,9 +330,11 @@ function TaskDetail() {
                                             width: '100%',
                                             height: '100%',
                                             objectFit: 'contain',
-                                            backgroundColor: 'white'
+                                            backgroundColor: 'white',
+                                            cursor: 'pointer'
                                           }}
                                           alt="Work image"
+                                          onClick={() => handlePreview(report.photoUrl, 'Work Image')}
                                         />
                                       </div>
                                     </Col>
@@ -328,8 +351,54 @@ function TaskDetail() {
           ]}
         />
       </Card>
-    </div>
+      </div>
+
+      <Modal
+        open={previewVisible}
+        title={previewTitle}
+        footer={null}
+        onCancel={handleCancel}
+        width="80%"
+        style={{ top: 20 }}
+        bodyStyle={{
+          padding: 0,
+          margin: 0,
+          height: '70vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f0f2f5'
+        }}
+      >
+        <div 
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '10px',
+            boxSizing: 'border-box'
+          }}
+        >
+          <img
+            alt="Preview"
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              width: 'auto',
+              height: 'auto',
+              objectFit: 'contain',
+              cursor: 'pointer',
+              display: 'block'
+            }}
+            src={previewImage}
+            onClick={handleCancel}
+          />
+        </div>
+      </Modal>
+    </>
   );
-}
+};
 
 export default TaskDetail;
