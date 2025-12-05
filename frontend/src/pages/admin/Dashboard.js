@@ -17,7 +17,8 @@ import {
   List,
   Tag,
   Space,
-  Statistic
+  Statistic,
+  Tabs
 } from "antd";
 import {
   PlusOutlined,
@@ -405,7 +406,7 @@ function Dashboard() {
       <div style={{ background: "#5b89c7", padding: "26px 30px", borderRadius: 8, color: "white" }}>
         <Row justify="space-between" align="middle">
           <Col>
-            <Title style={{ color: "white", marginBottom: 0 }}>Task Dashboard</Title>
+            <Title style={{ color: "white", marginBottom: 0 }}>Analysis</Title>
             <Text style={{ color: "white" }}>Monitor tasks, budgets, and progress in real-time</Text>
           </Col>
           <Col>
@@ -419,151 +420,128 @@ function Dashboard() {
 
       <br />
 
-      {/* TOP STAT CARDS */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #52c41a" }}>
-            <Statistic title="Total Tasks" value={stats?.totalTasks || 0} />
-            <Text type="secondary">All tasks in system</Text>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #1890ff" }}>
-            <Statistic title="Completed" value={stats?.completedTasks || 0} />
-            <Text type="secondary">Tasks finished</Text>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #ff4d4f" }}>
-            <Statistic title="Issues" value={stats?.issuesTasks || 0} />
-            <Text type="secondary">Tasks with problems</Text>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #faad14" }}>
-            <Statistic title="Pending" value={stats?.pendingTasks || 0} />
-            <Text type="secondary">Not started</Text>
-          </Card>
-        </Col>
-      </Row>
+      {/* TABS FOR OVERVIEW AND BUDGET */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <Tabs defaultActiveKey="1" style={{ width: '100%' }} items={[
+          {
+            key: "1",
+            label: "Overview",
+            children: (
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} md={6}>
+                  <Card style={{ borderLeft: "4px solid #52c41a" }}>
+                    <Statistic title="Total Tasks" value={stats?.totalTasks || 0} />
+                    <Text type="secondary">All tasks in system</Text>
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                  <Card style={{ borderLeft: "4px solid #1890ff" }}>
+                    <Statistic title="Completed" value={stats?.completedTasks || 0} />
+                    <Text type="secondary">Tasks finished</Text>
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                  <Card style={{ borderLeft: "4px solid #ff4d4f" }}>
+                    <Statistic title="Issues" value={stats?.issuesTasks || 0} />
+                    <Text type="secondary">Tasks with problems</Text>
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                  <Card style={{ borderLeft: "4px solid #faad14" }}>
+                    <Statistic title="Pending" value={stats?.pendingTasks || 0} />
+                    <Text type="secondary">Not started</Text>
+                  </Card>
+                </Col>
+              </Row>
+            )
+          },
+        {
+          key: "2",
+          label: "Budget",
+          children: (
+            <>
+              {/* BUDGET ANALYSIS CARDS */}
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} md={6}>
+                  <Card style={{ borderLeft: "4px solid #1890ff", textAlign: 'center' }}>
+                    <Text strong>Total Budget</Text>
+                    <Title level={3} style={{ margin: '8px 0' }}>AED {Number(displayTotals.totalBudget || 0).toLocaleString()}</Title>
+                    <Text type="secondary">Sum of all tasks</Text>
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                  <Card style={{ borderLeft: "4px solid #52c41a", textAlign: 'center' }}>
+                    <Text strong>Average Task</Text>
+                    <Title level={3} style={{ margin: '8px 0' }}>AED {Math.round(Number(displayTotals.avgBudgetPerTask || 0)).toLocaleString()}</Title>
+                    <Text type="secondary">Average budget per task</Text>
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                  <Card style={{ borderLeft: "4px solid #faad14", textAlign: 'center' }}>
+                    <Text strong>Highest Budget Task</Text>
+                    <Title level={3} style={{ margin: '8px 0' }}>AED {Number(displayTotals.mostExpensiveTask?.budget || 0).toLocaleString()}</Title>
+                    <Text type="secondary">{displayTotals.mostExpensiveTask?.name || "-"}</Text>
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={6}>
+                  <Card style={{ borderLeft: "4px solid #ff4d4f", textAlign: 'center' }}>
+                    <Text strong>Most Expensive Category</Text>
+                    <Title level={3} style={{ margin: '8px 0' }}>AED {Number(displayTotals.mostExpensiveCategory?.amount || 0).toLocaleString()}</Title>
+                    <Text type="secondary">{displayTotals.mostExpensiveCategory?.name || "-"}</Text>
+                  </Card>
+                </Col>
+              </Row>
 
-      <Divider />
+              <Divider />
 
-      {/* SMALL CHARTS (compact & clickable) */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={8}>
-          <Card
-            title="Budget Distribution"
-            hoverable
-            style={compactChartCardStyle}
-            onClick={() => {
-              setActiveChart("pie");
-              setChartModalOpen(true);
-            }}
-          >
-            <div style={{ height: 150 }}>
-              <Pie data={pieData} options={compactChartOptions} />
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <Text type="secondary">Click to enlarge</Text>
-            </div>
-          </Card>
-        </Col>
+              {/* BUDGET CHARTS */}
+              <Row gutter={[16, 16]}>
+                <Col xs={24} md={8}>
+                  <Card title="Budget Distribution by Category" hoverable style={{ cursor: 'pointer' }} onClick={() => { setActiveChart("pie"); setChartModalOpen(true); }}>
+                    <div style={{ height: 200 }}>
+                      <Pie data={pieData} options={{ maintainAspectRatio: false }} />
+                    </div>
+                  </Card>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Card title="Budget per Task" hoverable style={{ cursor: 'pointer' }} onClick={() => { setActiveChart("bar"); setChartModalOpen(true); }}>
+                    <div style={{ height: 200 }}>
+                      <Bar data={barPerTaskData} options={{ maintainAspectRatio: false }} />
+                    </div>
+                  </Card>
+                </Col>
+                <Col xs={24} md={8}>
+                  <Card title="Budget by Strategy" hoverable style={{ cursor: 'pointer' }} onClick={() => { setActiveChart("strategy"); setChartModalOpen(true); }}>
+                    <div style={{ height: 200 }}>
+                      <Bar data={strategyData} options={{ maintainAspectRatio: false }} />
+                    </div>
+                  </Card>
+                </Col>
+              </Row>
 
-        <Col xs={24} md={8}>
-          <Card
-            title="Budget per Task"
-            hoverable
-            style={compactChartCardStyle}
-            onClick={() => {
-              setActiveChart("bar");
-              setChartModalOpen(true);
-            }}
-          >
-            <div style={{ height: 150 }}>
-              <Bar data={barPerTaskData} options={{ ...compactChartOptions, plugins: { legend: { display: false } } }} />
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <Text type="secondary">Click to enlarge</Text>
-            </div>
-          </Card>
-        </Col>
+              <Divider />
 
-        <Col xs={24} md={8}>
-          <Card
-            title="Strategy-wise Budget"
-            hoverable
-            style={compactChartCardStyle}
-            onClick={() => {
-              setActiveChart("strategy");
-              setChartModalOpen(true);
-            }}
-          >
-            <div style={{ height: 150 }}>
-              <Bar data={strategyData} options={{ ...compactChartOptions, plugins: { legend: { display: false } } }} />
-            </div>
-            <div style={{ marginTop: 12 }}>
-              <Text type="secondary">Click to enlarge</Text>
-            </div>
-          </Card>
-        </Col>
-      </Row>
-
-      <Divider />
-
-      {/* BUDGET ANALYSIS CARDS */}
-      <Title level={4}>Budget Analysis</Title>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #1890ff", textAlign: 'center' }}>
-            <Text strong>Total Budget</Text>
-            <Title level={3} style={{ margin: '8px 0' }}>AED {Number(displayTotals.totalBudget || 0).toLocaleString()}</Title>
-            <Text type="secondary">Sum of all tasks</Text>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #52c41a", textAlign: 'center' }}>
-            <Text strong>Average Task</Text>
-            <Title level={3} style={{ margin: '8px 0' }}>AED {Math.round(Number(displayTotals.avgBudgetPerTask || 0)).toLocaleString()}</Title>
-            <Text type="secondary">Average budget per task</Text>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #faad14", textAlign: 'center' }}>
-            <Text strong>Highest Budget Task</Text>
-            <Title level={3} style={{ margin: '8px 0' }}>AED {Number(displayTotals.mostExpensiveTask?.budget || 0).toLocaleString()}</Title>
-            <Text type="secondary">{displayTotals.mostExpensiveTask?.name || "-"}</Text>
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} md={6}>
-          <Card style={{ borderLeft: "4px solid #ff4d4f", textAlign: 'center' }}>
-            <Text strong>Most Expensive Category</Text>
-            <Title level={3} style={{ margin: '8px 0' }}>AED {Number(displayTotals.mostExpensiveCategory?.amount || 0).toLocaleString()}</Title>
-            <Text type="secondary">{displayTotals.mostExpensiveCategory?.name || "-"}</Text>
-          </Card>
-        </Col>
-      </Row>
-
-      <Divider />
-
-      {/* DETAILED ANALYTICS (line, stacked bar) */}
-      <Row gutter={[16, 16]}>
-        <Col xs={24} md={12}>
-          <Card title="Budget Trend Over Time (Line)">
-            <div style={{ height: 220 }}>
-              <Line data={lineData} options={{ maintainAspectRatio: false }} />
-            </div>
-          </Card>
-        </Col>
-
-        <Col xs={24} md={12}>
-          <Card title="Category Breakdown Per Task (Stacked)">
-            <div style={{ height: 220 }}>
-              <Bar data={stackedBarData} options={stackedOptions} />
-            </div>
-          </Card>
-        </Col>
-      </Row>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} md={12}>
+                  <Card title="Budget Trend Over Time" hoverable style={{ cursor: 'pointer' }} onClick={() => { setActiveChart("line"); setChartModalOpen(true); }}>
+                    <div style={{ height: 300 }}>
+                      <Line data={lineData} options={{ maintainAspectRatio: false }} />
+                    </div>
+                  </Card>
+                </Col>
+                <Col xs={24} md={12}>
+                  <Card title="Category Breakdown Per Task" hoverable style={{ cursor: 'pointer' }} onClick={() => { setActiveChart("stacked"); setChartModalOpen(true); }}>
+                    <div style={{ height: 300 }}>
+                      <Bar data={stackedBarData} options={{ ...stackedOptions, maintainAspectRatio: false }} />
+                    </div>
+                  </Card>
+                </Col>
+              </Row>
+            </>
+          )
+        }
+        ]} />
+      </div>
 
       <Divider />
 
@@ -596,28 +574,39 @@ function Dashboard() {
             />
           </Card>
         </Col>
-
         <Col xs={24} lg={16}>
-          <Card
-            title={`All Tasks (${tasks.length})`}
-            extra={
-              <div style={{ display: "flex", gap: 8 }}>
-                <Select value={filters.status} onChange={handleStatusFilterChange} style={{ width: 150 }}>
-                  <Select.Option value="all">All Statuses</Select.Option>
-                  <Select.Option value="on-schedule">On Schedule</Select.Option>
-                  <Select.Option value="behind">Behind</Select.Option>
-                  <Select.Option value="ahead">Ahead</Select.Option>
-                  <Select.Option value="completed">Completed</Select.Option>
-                </Select>
-                <Select value={filters.assignedWorker} onChange={handleWorkerFilterChange} style={{ width: 150 }}>
-                  <Select.Option value="all">All Employees</Select.Option>
-                  {stats?.userStats?.map((u, i) => (
-                    <Select.Option key={i} value={u.user}>
-                      {u.user}
-                    </Select.Option>
-                  ))}
-                </Select>
-                <Button onClick={fetchDashboardData}>Refresh</Button>
+          <Card 
+            title={
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>All Tasks ({tasks.length})</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Select 
+                    value={filters.status} 
+                    onChange={handleStatusFilterChange} 
+                    style={{ width: 150 }}
+                    placeholder="Filter by status"
+                  >
+                    <Select.Option value="all">All Statuses</Select.Option>
+                    <Select.Option value="in-progress">In Progress</Select.Option>
+                    <Select.Option value="behind">Behind</Select.Option>
+                    <Select.Option value="ahead">Ahead</Select.Option>
+                    <Select.Option value="completed">Completed</Select.Option>
+                  </Select>
+                  <Select 
+                    value={filters.assignedWorker} 
+                    onChange={handleWorkerFilterChange} 
+                    style={{ width: 150 }}
+                    placeholder="Filter by employee"
+                  >
+                    <Select.Option value="all">All Employees</Select.Option>
+                    {stats?.userStats?.map((u, i) => (
+                      <Select.Option key={i} value={u.user}>
+                        {u.user}
+                      </Select.Option>
+                    ))}
+                  </Select>
+                  <Button onClick={fetchDashboardData} icon={<ReloadOutlined />} />
+                </div>
               </div>
             }
           >

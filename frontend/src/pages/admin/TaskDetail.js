@@ -38,6 +38,32 @@ function TaskDetail() {
   const [workReports, setWorkReports] = useState([]);
   const [workers, setWorkers] = useState([]);
 
+  // Calculate progress
+  const calculateProgress = (task, reports) => {
+    if (!task || !task.budgetedQuantity) {
+      console.log('No task or budgeted quantity');
+      return 0;
+    }
+    
+    const completed = reports.reduce((sum, report) => {
+      const qty = parseFloat(report.quantity) || 0;
+      console.log(`Report ID: ${report._id}, Quantity: ${qty}`);
+      return sum + qty;
+    }, 0);
+    
+    console.log('Task:', {
+      budgetedQuantity: task.budgetedQuantity,
+      completed,
+      progress: Math.min(100, Math.round((completed / task.budgetedQuantity) * 100))
+    });
+    
+    return Math.min(100, Math.round((completed / task.budgetedQuantity) * 100));
+  };
+
+  // Calculate remaining quantity
+  const remainingQuantity = task ? Math.max(0, task.budgetedQuantity - workReports.reduce((sum, report) => sum + (report.quantity || 0), 0)) : 0;
+  const progress = task ? calculateProgress(task, workReports) : 0;
+
   // Format date function
   const formatDate = (dateString) => {
     if (!dateString) return "Not available";
@@ -74,6 +100,8 @@ function TaskDetail() {
             workerName: r.worker?.name || "Unknown",
           }));
           setWorkReports(processed);
+        } else {
+          console.error('Failed to load work reports:', reportsRes.data);
         }
       } catch (err) {
         console.error(err);
@@ -160,12 +188,26 @@ function TaskDetail() {
         <div style={{ marginBottom: 16, display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 300, maxWidth: 500 }}>
             <div style={{ marginBottom: 8 }}>Progress</div>
-            <Progress 
-              percent={task.progress || 0} 
-              status={task.progress === 100 ? 'success' : 'active'}
-              strokeColor={task.progress === 100 ? '#52c41a' : '#1890ff'}
-              style={{ marginBottom: 16 }}
-            />
+            <div style={{ marginBottom: 16 }}>
+              <Progress 
+                percent={progress} 
+                status={progress === 100 ? 'success' : 'active'}
+                strokeColor={progress === 100 ? '#52c41a' : '#1890ff'}
+                format={() => `${progress}%`}
+                style={{ marginBottom: 8 }}
+              />
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                fontSize: 12,
+                color: '#666',
+                marginTop: 4
+              }}>
+                <span>0%</span>
+                <span>{progress}% Complete</span>
+                <span>100%</span>
+              </div>
+            </div>
           </div>
           
           <div style={{ flex: 1, minWidth: 200, maxWidth: 400 }}>
@@ -465,15 +507,11 @@ function TaskDetail() {
         >
           <img
             alt="Preview"
-            style={{
-              maxWidth: '100%',
-              maxHeight: '100%',
-              width: 'auto',
-              height: 'auto',
+           style={{
+              width: '100%',
+              height: '100%',
               objectFit: 'contain',
-              cursor: 'pointer',
-              display: 'block'
-            }}
+              cursor: 'pointer'}}
             src={previewImage}
             onClick={handleCancel}
           />
