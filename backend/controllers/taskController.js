@@ -394,7 +394,13 @@ const getDashboardStats = async (req, res) => {
   try {
     const totalTasks = await Task.countDocuments();
     const completedTasks = await Task.countDocuments({ status: 'completed' });
-    const issuesTasks = await Task.countDocuments({ status: 'behind' });
+    // Count tasks that are behind or overdue as issues
+    const issuesTasks = await Task.countDocuments({ 
+      $or: [
+        { status: 'behind' },
+        { status: 'overdue' }
+      ]
+    });
     const pendingTasks = await Task.countDocuments({ status: 'pending' });
     
     // Get all tasks with budget data

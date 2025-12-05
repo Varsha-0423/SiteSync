@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, Row, Col, Typography, Divider, Spin, Modal } from "antd";
+import { Card, Row, Col, Typography, Divider, Spin, Modal, Statistic } from "antd";
 import { ClockCircleOutlined, CheckCircleOutlined, WarningOutlined } from "@ant-design/icons";
-import { getDashboardStats, getTasks } from "../../services/dashboardService";
+import api from "../../api";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -45,22 +45,34 @@ function SupervisorDashboard() {
 
   useEffect(() => {
     fetchStats();
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchStats = async () => {
     try {
       setLoading(true);
-      const response = await getDashboardStats();
-      if (response?.data) {
-        console.log('Dashboard stats:', response.data);
-        setStats({
-          ...response.data,
-          userStats: response.data.userStats || []
-        });
-      }
       
-      const tasks = await getTasks();
+      // Fetch supervisor's today tasks (tasks in assign task page)
+      const response = await api.get('/tasks/supervisor-today');
+      const tasks = response.data.data || [];
+      
       if (tasks) {
+        // Calculate stats from supervisor's tasks
+        const totalTasks = tasks.length;
+        const completedTasks = tasks.filter(t => t.status === 'completed').length;
+        const issuesTasks = tasks.filter(t => t.status === 'issues' || t.status === 'behind' || t.hasIssues).length;
+        const pendingTasks = tasks.filter(t => !t.status || t.status === 'pending').length;
+        
+        setStats({
+          totalTasks,
+          completedTasks,
+          issuesTasks,
+          pendingTasks,
+          userStats: []
+        });
+        
         const sorted = tasks.sort((a, b) => 
           new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0)
         ).slice(0, 5);
@@ -88,39 +100,28 @@ function SupervisorDashboard() {
         </div>
       ) : (
         <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={8}>
-            <Card style={{ borderLeft: "4px solid #1890ff" }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <ClockCircleOutlined style={{ fontSize: "40px", color: "#1890ff", marginRight: "16px" }} />
-                <div>
-                  <Text type="secondary">Pending Tasks</Text>
-                  <Title level={2} style={{ margin: 0 }}>{stats.pendingTasks || 0}</Title>
-                </div>
-              </div>
-            </Card>
-          </Col>
-
-          <Col xs={24} sm={12} md={8}>
+          <Col xs={24} sm={12} md={6}>
             <Card style={{ borderLeft: "4px solid #52c41a" }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <CheckCircleOutlined style={{ fontSize: "40px", color: "#52c41a", marginRight: "16px" }} />
-                <div>
-                  <Text type="secondary">Completed</Text>
-                  <Title level={2} style={{ margin: 0 }}>{stats.completedTasks || 0}</Title>
-                </div>
-              </div>
+              <Statistic title="Total Tasks" value={stats?.totalTasks || 0} />
+              <Text type="secondary">Scheduled tasks</Text>
             </Card>
           </Col>
-
-          <Col xs={24} sm={12} md={8}>
+          <Col xs={24} sm={12} md={6}>
+            <Card style={{ borderLeft: "4px solid #1890ff" }}>
+              <Statistic title="Completed" value={stats?.completedTasks || 0} />
+              <Text type="secondary">Tasks finished</Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
             <Card style={{ borderLeft: "4px solid #ff4d4f" }}>
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <WarningOutlined style={{ fontSize: "40px", color: "#ff4d4f", marginRight: "16px" }} />
-                <div>
-                  <Text type="secondary">Issues Reported</Text>
-                  <Title level={2} style={{ margin: 0 }}>{stats.issuesTasks || 0}</Title>
-                </div>
-              </div>
+              <Statistic title="Issues" value={stats?.issuesTasks || 0} />
+              <Text type="secondary">Tasks with problems</Text>
+            </Card>
+          </Col>
+          <Col xs={24} sm={12} md={6}>
+            <Card style={{ borderLeft: "4px solid #faad14" }}>
+              <Statistic title="Pending" value={stats?.pendingTasks || 0} />
+              <Text type="secondary">Not started</Text>
             </Card>
           </Col>
         </Row>
@@ -129,7 +130,7 @@ function SupervisorDashboard() {
       <Divider />
 
       {/* Charts Section */}
-      <Title level={4}>Task Analytics</Title>
+      {/* <Title level={4}>Task Analytics</Title>
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
           <Card 
@@ -224,7 +225,7 @@ function SupervisorDashboard() {
             </div>
           </Card>
         </Col>
-      </Row>
+      </Row> */}
 
       <Divider />
 
@@ -234,6 +235,7 @@ function SupervisorDashboard() {
         {recentTasks.length > 0 ? (
           recentTasks.map((task, i) => {
             let timeAgo = 'Recently';
+            let dateStr = '';
             if (task.updatedAt) {
               const diffMs = Date.now() - new Date(task.updatedAt);
               const hours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -245,17 +247,35 @@ function SupervisorDashboard() {
               } else {
                 timeAgo = 'Just now';
               }
+              dateStr = new Date(task.updatedAt).toLocaleDateString();
             }
             const workers = task.assignedWorkers?.map(w => w.name).join(', ') || 'Unassigned';
             return (
-              <div key={task._id} style={{ padding: "12px 16px", borderBottom: i < recentTasks.length - 1 ? "1px solid #f0f0f0" : "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div 
+                key={task._id} 
+                style={{ 
+                  padding: "12px 16px", 
+                  borderBottom: i < recentTasks.length - 1 ? "1px solid #f0f0f0" : "none", 
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: "center",
+                  cursor: "pointer",
+                  transition: "background-color 0.2s"
+                }}
+                onClick={(e) => { e.preventDefault(); navigate('/supervisor/assign-tasks'); }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
                 <div style={{ flex: 1, marginRight: '16px' }}>
                   <Text strong>{task.taskName}</Text>
                   <div style={{ marginTop: '4px' }}>
                     <Text type="secondary" style={{ fontSize: "13px" }}>{workers} • {task.status || 'pending'}</Text>
                   </div>
                 </div>
-                <Text type="secondary" style={{ fontSize: "12px", whiteSpace: 'nowrap' }}>{timeAgo}</Text>
+                <div style={{ textAlign: 'right' }}>
+                  <Text type="secondary" style={{ fontSize: "12px", whiteSpace: 'nowrap', display: 'block' }}>{dateStr}</Text>
+                  <Text type="secondary" style={{ fontSize: "12px", whiteSpace: 'nowrap', display: 'block' }}>{timeAgo}</Text>
+                </div>
               </div>
             );
           })

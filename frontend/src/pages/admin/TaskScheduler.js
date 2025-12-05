@@ -206,8 +206,10 @@ function TaskScheduler() {
       // Apply status filter
       let statusMatch = true;
       if (statusFilter !== 'all') {
-        if (statusFilter === 'not_assigned') {
-          statusMatch = !task.assignedWorkers || task.assignedWorkers.length === 0;
+        if (statusFilter === 'assigned') {
+          statusMatch = task.isForToday || task.supervisor || (task.assignedWorkers && task.assignedWorkers.length > 0);
+        } else if (statusFilter === 'not_assigned') {
+          statusMatch = !task.isForToday && !task.supervisor && (!task.assignedWorkers || task.assignedWorkers.length === 0);
         } else if (statusFilter === 'in_progress') {
           // Handle both 'in_progress' and 'in-progress' status values
           statusMatch = task.status === 'in_progress' || task.status === 'in-progress';
@@ -274,10 +276,12 @@ function TaskScheduler() {
         taskIds: selectedTaskIds,
         supervisorId: selectedSupervisor
       });
+      await fetchAllTasks();
       await fetchTodayTasks();
       setMessage('Tasks scheduled successfully');
       setTimeout(() => setMessage(''), 3000);
       setModalOpen(false);
+      setSelectedTaskIds([]);
     } catch (error) {
       console.error('Error scheduling tasks:', error);
       setMessage('Error scheduling tasks');
@@ -427,8 +431,8 @@ function TaskScheduler() {
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
               <option value="overdue">Overdue</option>
-              <option value="on_hold">On Hold</option>
               <option value="issues">Issues</option>
+              <option value="assigned">Assigned</option>
               <option value="not_assigned">Not Assigned</option>
             </select>
           </div>
@@ -472,14 +476,14 @@ function TaskScheduler() {
                       />
                       <h4 style={{ margin: '0', color: '#333' }}>{task.taskName}</h4>
                     </div>
-                    {task.description && (
+                    {/* {task.description && (
                       <p style={{ margin: '0 0 10px 30px', color: '#666', fontSize: '14px' }}>
                         {task.description}
                       </p>
-                    )}
+                    )} */}
                     <div style={{ marginLeft: '30px', fontSize: '14px', color: '#666' }}>
                       <span>Date: {new Date(task.date).toLocaleDateString()}</span>
-                      {task.assignedWorkers && task.assignedWorkers.length > 0 && (
+                      {(task.isForToday || task.supervisor || (task.assignedWorkers && task.assignedWorkers.length > 0)) && (
                         <span style={{ marginLeft: '15px', color: '#e06767ff' }}>
                           Assigned
                         </span>
