@@ -326,7 +326,7 @@ function SupervisorTaskAssignment() {
                           {task.status.replace('-', ' ')}
                         </span>
                       </div>
-                      <select
+                      {/* <select
                         value={task.status}
                         onChange={(e) => updateTaskStatus(task._id, e.target.value)}
                         style={{
@@ -345,7 +345,7 @@ function SupervisorTaskAssignment() {
                         <option value="behind">Behind</option>
                         <option value="ahead">Ahead</option>
                         <option value="completed">Completed</option>
-                      </select>
+                      </select> */}
                     </div>
                   </div>
                 </div>

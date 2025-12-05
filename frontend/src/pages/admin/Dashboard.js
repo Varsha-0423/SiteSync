@@ -592,29 +592,36 @@ function Dashboard() {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8}>
           <Card title="Recent Reported Activity">
-            <List
-              itemLayout="horizontal"
-              dataSource={recentActivities}
-              locale={{ emptyText: "No recent activities" }}
-              renderItem={(item) => (
-                <List.Item>
-                  <List.Item.Meta
-                    title={<Text strong>{item.taskName}</Text>}
-                    description={
-                      <>
-                        <Text type="secondary">{item.status ? item.status.replace("-", " ") : "No status"}</Text>
-                        <div style={{ marginTop: 6 }}>
-                          <Text type="secondary" style={{ marginRight: 8 }}>
-                            {item.date ? new Date(item.date).toLocaleDateString() : "No Date"}
-                          </Text>
-                          {/* <Tag color={getStatusColor(item.status)}>{(item.priority || "N/A").toUpperCase()}</Tag> */}
-                        </div>
-                      </>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
+            {recentActivities.length > 0 ? (
+              recentActivities.map((item, i) => (
+                <div
+                  key={item._id}
+                  style={{
+                    padding: "12px 16px",
+                    borderBottom: i < recentActivities.length - 1 ? "1px solid #f0f0f0" : "none",
+                    cursor: "pointer",
+                    transition: "background-color 0.2s"
+                  }}
+                  onClick={() => navigate('/admin/schedule-tasks')}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <Text strong>{item.taskName}</Text>
+                  <div style={{ marginTop: 4 }}>
+                    <Text type="secondary">{item.status ? item.status.replace("-", " ") : "No status"}</Text>
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <Text type="secondary" style={{ fontSize: "12px" }}>
+                      {item.date ? new Date(item.date).toLocaleDateString() : "No Date"}
+                    </Text>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ padding: "12px 16px" }}>
+                <Text type="secondary">No recent activities</Text>
+              </div>
+            )}
           </Card>
         </Col>
         <Col xs={24} lg={16}>
@@ -660,7 +667,13 @@ function Dashboard() {
               </div>
             ) : filteredTasks.length > 0 ? (
               filteredTasks.map((task) => (
-                <Card key={task._id} style={{ marginBottom: 12 }}>
+                <Card 
+                  key={task._id} 
+                  style={{ marginBottom: 12, cursor: 'pointer', transition: 'background-color 0.2s' }} 
+                  onClick={() => navigate('/admin/schedule-tasks')}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
                   <Row justify="space-between" align="middle">
                     <Col xs={24} sm={16}>
                       <Title level={5} style={{ marginBottom: 6 }}>{task.taskName}</Title>
@@ -690,7 +703,7 @@ function Dashboard() {
                     </Col>
 
                     <Col xs={24} sm={8} style={{ textAlign: "right" }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8 }} onClick={(e) => e.stopPropagation()}>
                         <Button
                           type="primary"
                           style={{
