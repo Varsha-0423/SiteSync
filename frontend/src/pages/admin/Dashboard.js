@@ -126,9 +126,22 @@ function Dashboard() {
       setLoading(true);
       setError(null);
 
-      const response = await getDashboardStats();
-      if (!response) throw new Error("No response from server");
-      const data = response.data || response;
+      const [statsResponse, tasksResponse] = await Promise.all([
+        getDashboardStats(),
+        getTasks()
+      ]);
+      
+      if (!statsResponse) throw new Error("No response from server");
+      
+      const data = statsResponse.data || statsResponse;
+      const tasks = Array.isArray(tasksResponse) ? tasksResponse : (tasksResponse.data || []);
+      
+      // Calculate issues count similar to supervisor dashboard
+      const issuesTasks = tasks.filter(t => 
+        t.status === 'issues' || 
+        t.status === 'behind' || 
+        t.hasIssues === true
+      ).length;
 
       setStats({
         totalTasks: data.totalTasks || 0,
@@ -136,10 +149,10 @@ function Dashboard() {
         behindTasks: data.behindTasks || 0,
         aheadTasks: data.aheadTasks || 0,
         completedTasks: data.completedTasks || 0,
-        issuesTasks: data.issuesTasks || 0,
+        issuesTasks: issuesTasks, // Use the calculated issues count
         pendingTasks: data.pendingTasks || 0,
         userStats: data.userStats || [],
-        budgetStats: data.budgetStats || undefined // allow optional backend budget stats
+        budgetStats: data.budgetStats || undefined
       });
 
       const taskFilters = {};
