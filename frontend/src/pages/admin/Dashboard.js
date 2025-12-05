@@ -76,7 +76,12 @@ function Dashboard() {
     // budgetStats: { ... }
   });
   const [tasks, setTasks] = useState([]);
-  const [filters, setFilters] = useState({ status: "all", assignedWorker: "all" });
+  const [filters, setFilters] = useState({ 
+    status: "all", 
+    assignedWorker: "all" 
+  });
+  
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showWorkerModal, setShowWorkerModal] = useState(false);
   const [userRole, setUserRole] = useState("admin"); // replace with auth context
@@ -89,6 +94,32 @@ function Dashboard() {
     fetchDashboardData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
+
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setFilters(prev => ({ ...prev, status: value }));
+  };
+
+  const filteredTasks = useMemo(() => {
+    if (!tasks || !Array.isArray(tasks)) return [];
+    
+    return tasks.filter(task => {
+      // Apply status filter
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'in-progress') {
+          return task.status === 'in_progress' || task.status === 'in-progress';
+        } else if (statusFilter === 'pending') {
+          // 'pending' means not assigned to any worker
+          return !task.assignedWorkers || task.assignedWorkers.length === 0;
+        } else if (statusFilter === 'assigned') {
+          // 'assigned' means assigned to workers
+          return task.assignedWorkers && task.assignedWorkers.length > 0;
+        }
+        return task.status === statusFilter;
+      }
+      return true;
+    });
+  }, [tasks, statusFilter]);
 
   const fetchDashboardData = async () => {
     try {
@@ -136,7 +167,6 @@ function Dashboard() {
     }
   };
 
-  const handleStatusFilterChange = (value) => setFilters((prev) => ({ ...prev, status: value }));
   const handleWorkerFilterChange = (value) => setFilters((prev) => ({ ...prev, assignedWorker: value }));
   const handleTaskCreated = () => fetchDashboardData();
   const handleWorkersAssigned = () => fetchDashboardData();
@@ -548,7 +578,7 @@ function Dashboard() {
       {/* RECENT ACTIVITY + TASK LIST */}
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={8}>
-          <Card title="Recent Activity">
+          <Card title="Recent Reported Activity">
             <List
               itemLayout="horizontal"
               dataSource={recentActivities}
@@ -581,16 +611,17 @@ function Dashboard() {
                 <span>All Tasks ({tasks.length})</span>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <Select 
-                    value={filters.status} 
-                    onChange={handleStatusFilterChange} 
+                    value={statusFilter}
+                    onChange={handleStatusFilterChange}
                     style={{ width: 150 }}
                     placeholder="Filter by status"
                   >
                     <Select.Option value="all">All Statuses</Select.Option>
                     <Select.Option value="in-progress">In Progress</Select.Option>
-                    <Select.Option value="behind">Behind</Select.Option>
-                    <Select.Option value="ahead">Ahead</Select.Option>
                     <Select.Option value="completed">Completed</Select.Option>
+                    <Select.Option value="pending">Pending</Select.Option>
+                    <Select.Option value="issues">Issues</Select.Option>
+                    <Select.Option value="not_assigned">Assigned</Select.Option>
                   </Select>
                   <Select 
                     value={filters.assignedWorker} 
@@ -614,16 +645,30 @@ function Dashboard() {
               <div style={{ textAlign: "center", padding: 20 }}>
                 <Spin />
               </div>
-            ) : tasks.length > 0 ? (
-              tasks.map((task) => (
+            ) : filteredTasks.length > 0 ? (
+              filteredTasks.map((task) => (
                 <Card key={task._id} style={{ marginBottom: 12 }}>
                   <Row justify="space-between" align="middle">
                     <Col xs={24} sm={16}>
                       <Title level={5} style={{ marginBottom: 6 }}>{task.taskName}</Title>
-                      <Text>{task.description}</Text>
+                      {/* <Text>{task.description}</Text> */}
                       <div style={{ marginTop: 10 }}>
                         <Text strong>Assigned to:</Text>{" "}
-                        <Text>{task.assignedWorkers?.map((w) => w.name).join(", ") || "Unassigned"}</Text>
+                        <Text>
+                          {task.assignedWorkers && task.assignedWorkers.length > 0 
+                            ? task.assignedWorkers
+                                .filter(worker => worker && (worker.name || worker.username)) 
+                                .map(worker => worker.name || worker.username) 
+                                .filter(Boolean) 
+                                .join(", ") 
+                            : "Unassigned"}
+                        </Text>
+                        {task.supervisor && (
+                          <div style={{ marginTop: 4 }}>
+                            <Text strong>Supervisor: </Text>
+                            <Text>{task.supervisor.name || task.supervisor.username || 'No supervisor name'}</Text>
+                          </div>
+                        )}
                       </div>
                       <div style={{ marginTop: 6 }}>
                         <Text strong>Due:</Text>{" "}
